@@ -12,7 +12,7 @@ set( QT5_ROOT_PATH CACHE PATH "Qt5 root directory (i.e. where the 'bin' folder l
 if ( QT5_ROOT_PATH )
 	list( APPEND CMAKE_PREFIX_PATH ${QT5_ROOT_PATH} )
 endif()
-
+message("Qt5 root path: ${QT5_ROOT_PATH}")
 find_package( Qt5
     COMPONENTS
         Concurrent

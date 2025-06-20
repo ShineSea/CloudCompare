@@ -68,6 +68,8 @@
 #include <cassert>
 #include <cstring>
 
+#include "labelInfoEditDlg.h"
+
 //Minimum width of the left column of the properties tree view
 static const int c_propViewLeftColumnWidth = 115;
 
@@ -284,6 +286,7 @@ ccDBRoot::ccDBRoot(ccCustomQTreeView* dbTreeWidget, QTreeView* propertiesTreeWid
 	m_alignCameraWithEntityReverse = new QAction(tr("Align camera (reverse)"), this);
 	m_enableBubbleViewMode = new QAction(tr("Bubble-view"), this);
 	m_editLabelScalarValue = new QAction(tr("Edit scalar value"), this);
+	m_editLabelInfo = new QAction(tr("Edit labelInfo"), this);
 
 	m_contextMenuPos = QPoint(-1,-1);
 
@@ -310,7 +313,7 @@ ccDBRoot::ccDBRoot(ccCustomQTreeView* dbTreeWidget, QTreeView* propertiesTreeWid
 	connect(m_alignCameraWithEntityReverse,		&QAction::triggered,					this, &ccDBRoot::alignCameraWithEntityIndirect);
 	connect(m_enableBubbleViewMode,				&QAction::triggered,					this, &ccDBRoot::enableBubbleViewMode);
 	connect(m_editLabelScalarValue,				&QAction::triggered,					this, &ccDBRoot::editLabelScalarValue);
-
+	connect(m_editLabelInfo,					&QAction::triggered,					this, &ccDBRoot::editLabelInfo);
 	//other DB tree signals/slots connection
 	connect(m_dbTreeWidget->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ccDBRoot::changeSelection);
 
@@ -1266,12 +1269,15 @@ Qt::ItemFlags ccDBRoot::flags(const QModelIndex& idx) const
 
 	Qt::ItemFlags defaultFlags = QAbstractItemModel::flags(idx);
 
-	//common flags
-	defaultFlags |= (Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable);
-
 	//class type based filtering
 	const ccHObject *item = static_cast<const ccHObject*>(idx.internalPointer());
 	assert(item);
+	if(item->isA(CC_TYPES::POLY_LINE))
+	{
+		defaultFlags |= (Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+	}else{
+		defaultFlags |= (Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable);
+	}
 	if (item && !item->isLocked()) //locked items cannot be drag-dropped
 	{
 		if (item->isA(CC_TYPES::HIERARCHY_OBJECT)								||
@@ -2334,6 +2340,31 @@ void ccDBRoot::editLabelScalarValue()
 	}
 }
 
+void ccDBRoot::editLabelInfo()
+{
+	QItemSelectionModel* qism = m_dbTreeWidget->selectionModel();
+	QModelIndexList selectedIndexes = qism->selectedIndexes();
+	int selCount = selectedIndexes.size();
+	if (selCount != 1)
+	{
+		return;
+	}
+	auto selectIndex=selectedIndexes[0];
+	ccHObject* obj = static_cast<ccHObject*>(selectIndex.internalPointer());
+	if(obj->isA(CC_TYPES::POLY_LINE))
+	{
+		ccPolyline* polyline = ccHObjectCaster::ToPolyline(obj);
+		LabelInfo labelInfo = polyline->getLabelInfo();
+		labelInfoEditDlg dlg;
+		dlg.setLabelInfo(labelInfo);
+		if(dlg.exec()==QDialog::Accepted)
+		{
+			polyline->setLabelInfo(dlg.getLabelInfo());
+			emit dataChanged(selectIndex, selectIndex);
+		}
+	}
+}
+
 void ccDBRoot::showContextMenu(const QPoint& menuPos)
 {
 	m_contextMenuPos = menuPos;
@@ -2415,10 +2446,14 @@ void ccDBRoot::showContextMenu(const QPoint& menuPos)
 						{
 							hasExacltyOneGBLSenor = true;
 						}
+						if (item->isA(CC_TYPES::POLY_LINE))
+						{
+							menu.addAction(m_editLabelInfo);
+						}
 					}
 				}
 			}
-
+			
 			if (planarEntityCount == 1)
 			{
 				menu.addAction(m_alignCameraWithEntity);

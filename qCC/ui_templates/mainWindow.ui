@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1028</width>
-    <height>777</height>
+    <width>746</width>
+    <height>728</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -38,8 +38,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1028</width>
-     <height>22</height>
+     <width>746</width>
+     <height>23</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -720,6 +720,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    <addaction name="actionPointPicking"/>
    <addaction name="actionPointListPicking"/>
    <addaction name="actionTracePolyline"/>
+   <addaction name="actionLabel"/>
    <addaction name="actionClone"/>
    <addaction name="actionMerge"/>
    <addaction name="actionDelete"/>
@@ -3314,6 +3315,18 @@ The active scalar field should have integer values.</string>
   <action name="actionShortcutSettings">
    <property name="text">
     <string>Shortcut settings</string>
+   </property>
+  </action>
+  <action name="actionLabel">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/label.png</normaloff>:/CC/images/label.png</iconset>
+   </property>
+   <property name="text">
+    <string>Label</string>
+   </property>
+   <property name="toolTip">
+    <string>Label</string>
    </property>
   </action>
  </widget>

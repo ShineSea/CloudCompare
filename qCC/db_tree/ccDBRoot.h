@@ -200,6 +200,7 @@ private:
 	void sortChildrenType();
 	void selectByTypeAndName();
 	void exportImages();
+	void editLabelInfo();
 
 	inline void toggleSelectedEntities()			{ toggleSelectedEntitiesProperty(TG_ENABLE); }
 	inline void toggleSelectedEntitiesVisibility()	{ toggleSelectedEntitiesProperty(TG_VISIBLE); }
@@ -301,6 +302,9 @@ protected:
 	QAction* m_enableBubbleViewMode;
 	//! Context menu action: change current scalar value (via a 2D label)
 	QAction* m_editLabelScalarValue;
+
+	//! Context menu action: edit labelInfo
+	QAction* m_editLabelInfo;
 
 	//! Last context menu pos
 	QPoint m_contextMenuPos;

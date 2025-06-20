@@ -116,6 +116,7 @@
 #include "ccSORFilterDlg.h"
 #include "ccSubsamplingDlg.h"
 #include "ccTracePolylineTool.h"
+#include "ccLabelTool.h"
 #include "ccTranslationManager.h"
 #include "ccUnrollDlg.h"
 #include "ccVolumeCalcTool.h"
@@ -209,6 +210,7 @@ MainWindow::MainWindow()
 	, m_cpeDlg(nullptr)
 	, m_gsTool(nullptr)
 	, m_tplTool(nullptr)
+	, m_labelTool(nullptr)
 	, m_seTool(nullptr)
 	, m_transTool(nullptr)
 	, m_clipTool(nullptr)
@@ -670,6 +672,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionTranslateRotate,			&QAction::triggered, this, &MainWindow::activateTranslateRotateMode);
 	connect(m_UI->actionSegment,					&QAction::triggered, this, &MainWindow::activateSegmentationMode);
     connect(m_UI->actionTracePolyline,				&QAction::triggered, this, &MainWindow::activateTracePolylineMode);
+	connect(m_UI->actionLabel,						&QAction::triggered, this, &MainWindow::activateLabelMode);
 
 	connect(m_UI->actionCrop,						&QAction::triggered, this, &MainWindow::doActionCrop);
 	connect(m_UI->actionEditGlobalShiftAndScale,	&QAction::triggered, this, &MainWindow::doActionEditGlobalShiftAndScale);
@@ -6985,6 +6988,51 @@ void MainWindow::deactivateTracePolylineMode(bool)
 	}
 }
 
+void MainWindow::activateLabelMode()
+{
+	ccGLWindowInterface* win = getActiveGLWindow();
+	if (!win)
+	{
+		return;
+	}
+
+	if (!m_labelTool)
+	{
+		m_labelTool = new ccLabelTool(m_pickingHub, this);
+		connect(m_labelTool, &ccOverlayDialog::processFinished, this, &MainWindow::deactivateLabelMode);
+		registerOverlayDialog(m_labelTool, Qt::TopRightCorner);
+	}
+
+	m_labelTool->linkWith(win);
+
+	freezeUI(true);
+	m_UI->toolBarView->setDisabled(false);
+
+	//we disable all other windows
+	disableAllBut(win);
+
+	if (!m_labelTool->start())
+		deactivateLabelMode(false);
+	else
+		updateOverlayDialogsPlacement();
+}
+
+void MainWindow::deactivateLabelMode(bool)
+{
+	//we enable all GL windows
+	enableAll();
+
+	freezeUI(false);
+
+	updateUI();
+
+	ccGLWindowInterface* win = getActiveGLWindow();
+	if (win)
+	{
+		win->redraw();
+	}
+}
+
 void MainWindow::activatePointListPickingMode()
 {
 	ccGLWindowInterface* win = getActiveGLWindow();
@@ -11350,6 +11398,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	//menuTools->setEnabled(atLeastOneEntity);
 
 	m_UI->actionTracePolyline->setEnabled(!dbIsEmpty);
+	m_UI->actionLabel->setEnabled(!dbIsEmpty);
 	m_UI->actionZoomAndCenter->setEnabled(atLeastOneEntity && activeWindow);
 	m_UI->actionSave->setEnabled(atLeastOneEntity);
 	m_UI->actionSaveProject->setEnabled(!dbIsEmpty);
@@ -12213,6 +12262,7 @@ void MainWindow::populateActionList()
     m_actions.push_back(m_UI->actionEnableVisualDebugTraces);
     m_actions.push_back(m_UI->actionRGBToGreyScale);
     m_actions.push_back(m_UI->actionTracePolyline);
+	m_actions.push_back(m_UI->actionLabel);
     m_actions.push_back(m_UI->actionEnableQtWarnings);
     m_actions.push_back(m_UI->actionGlobalShiftSettings);
     m_actions.push_back(m_UI->actionEnableCameraLink);

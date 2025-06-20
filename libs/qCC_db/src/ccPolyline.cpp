@@ -524,6 +524,7 @@ bool ccPolyline::fromFile_MeOnly(QFile& in, short dataVersion, int flags, Loaded
 		ccSerializationHelper::CoordsFromDataStream(inStream, flags, &m_width, 1);
 	}
 
+	setLabelInfo(getLabelInfo());
 	return true;
 }
 
@@ -1090,4 +1091,24 @@ void ccPolyline::onDeletionOf(const ccHObject* obj)
 		setAssociatedCloud(nullptr);
 		setName(getName() + " (emptied)");
 	}
+}
+
+void ccPolyline::setLabelInfo(const LabelInfo& labelInfo)
+{
+	if (labelInfo.deviceId.isEmpty() && labelInfo.deviceName.isEmpty())
+	{
+		ccLog::Warning("[ccPolyline::setLabelInfo] Invalid label info (empty device ID and name)");
+		return;
+	}
+	this->setName(QStringLiteral("%1:%2").arg(labelInfo.deviceId, labelInfo.deviceName));
+	this->setMetaData(QStringLiteral("编号"),labelInfo.deviceId);
+	this->setMetaData(QStringLiteral("设备名称"),labelInfo.deviceName);
+}
+
+LabelInfo ccPolyline::getLabelInfo() const
+{
+	LabelInfo labelInfo;
+	labelInfo.deviceId = this->getMetaData(QStringLiteral("编号")).toString();
+	labelInfo.deviceName = this->getMetaData(QStringLiteral("设备名称")).toString();
+	return labelInfo;
 }

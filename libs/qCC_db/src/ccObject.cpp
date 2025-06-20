@@ -282,6 +282,11 @@ bool ccObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& ol
 	uint32_t uniqueID = 0;
 	if (in.read((char*)&uniqueID, 4) < 0)
 		return ReadError();
+	//特殊uniqueID不允许被覆盖
+	if (uniqueID < ccUniqueIDGenerator::MinUniqueID)
+	{
+		setUniqueID(uniqueID);
+	}
 	//DGM: this ID will be useful to recreate dynamic links between entities later!
 	if (oldToNewIDMap.contains(uniqueID))
 	{

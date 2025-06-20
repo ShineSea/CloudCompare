@@ -1109,6 +1109,7 @@ bool ccHObject::fromFile(QFile& in, short dataVersion, int flags, LoadedIDMap& o
 			size_t originalFilePos = in.pos();
 			//we need to load the custom object as plain ccCustomHObject
 			child->fromFileNoChildren(in, dataVersion, flags, oldToNewIDMap);
+
 			//go back to original position
 			in.seek(originalFilePos);
 			//get custom object name and plugin name

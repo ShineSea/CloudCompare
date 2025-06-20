@@ -10,6 +10,12 @@ if ( ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
 	endif()
 endif()
 
+if(MSVC)
+  add_compile_options("/source-charset:utf-8")
+endif()
+
+
+
 # Add our cmake module path so we don't need relative paths for these
 list( APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/" )
 
