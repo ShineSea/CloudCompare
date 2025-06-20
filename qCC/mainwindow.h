@@ -201,6 +201,8 @@ private:
 	//! Clones currently selected entities
 	void doActionClone();
 
+	void doActionSaveLabelInfo();
+
 	//! Updates entities display target when a gl sub-window is deleted
 	/** \param glWindow the window that is going to be delete
 	**/

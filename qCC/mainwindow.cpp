@@ -165,6 +165,10 @@
 
 #include "ccShortcutDialog.h"
 
+#include "ccReservedIDs.h"
+
+#include "xlsxdocument.h"
+
 //global static pointer (as there should only be one instance of MainWindow!)
 static MainWindow* s_instance  = nullptr;
 
@@ -672,7 +676,6 @@ void MainWindow::connectActions()
 	connect(m_UI->actionTranslateRotate,			&QAction::triggered, this, &MainWindow::activateTranslateRotateMode);
 	connect(m_UI->actionSegment,					&QAction::triggered, this, &MainWindow::activateSegmentationMode);
     connect(m_UI->actionTracePolyline,				&QAction::triggered, this, &MainWindow::activateTracePolylineMode);
-	connect(m_UI->actionLabel,						&QAction::triggered, this, &MainWindow::activateLabelMode);
 
 	connect(m_UI->actionCrop,						&QAction::triggered, this, &MainWindow::doActionCrop);
 	connect(m_UI->actionEditGlobalShiftAndScale,	&QAction::triggered, this, &MainWindow::doActionEditGlobalShiftAndScale);
@@ -834,6 +837,9 @@ void MainWindow::connectActions()
 
 	//hidden
 	connect(m_UI->actionEnableVisualDebugTraces,	&QAction::triggered, this, &MainWindow::toggleVisualDebugTraces);
+
+	connect(m_UI->actionLabel,						&QAction::triggered, this, &MainWindow::activateLabelMode);
+	connect(m_UI->actionSaveLabelInfo,&QAction::triggered, this, &MainWindow::doActionSaveLabelInfo);
 }
 
 void MainWindow::doActionColorize()
@@ -11396,9 +11402,10 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 
 	//menuEdit->setEnabled(atLeastOneEntity);
 	//menuTools->setEnabled(atLeastOneEntity);
+	m_UI->actionLabel->setEnabled(!dbIsEmpty);
+	m_UI->actionSaveLabelInfo->setEnabled(!dbIsEmpty);
 
 	m_UI->actionTracePolyline->setEnabled(!dbIsEmpty);
-	m_UI->actionLabel->setEnabled(!dbIsEmpty);
 	m_UI->actionZoomAndCenter->setEnabled(atLeastOneEntity && activeWindow);
 	m_UI->actionSave->setEnabled(atLeastOneEntity);
 	m_UI->actionSaveProject->setEnabled(!dbIsEmpty);
@@ -12073,6 +12080,93 @@ void MainWindow::doActionPromoteCircleToCylinder()
 	setSelectedInDB(cylinder, true);
 }
 
+void MainWindow::doActionSaveLabelInfo()
+{
+	ccHObject* labelGroup=m_ccRoot->find(static_cast<unsigned>(ReservedIDs::LABEL_TOOL_LABEL_GROUP));
+	if(!labelGroup)
+	{
+		ccConsole::Warning(tr("Label group not found"));
+		return;
+	}
+	QSettings settings;
+	settings.beginGroup(ccPS::SaveFile());
+	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
+	QString fullPathName = currentPath;
+	fullPathName += QStringLiteral("/标注.xlsx");
+	QString selectedFilename = QFileDialog::getSaveFileName(this,
+		QStringLiteral("保存标注信息"),
+		fullPathName,
+		QStringLiteral("xlsx文件 (*.xlsx)"),
+		nullptr,
+		CCFileDialogOptions());
+	if (selectedFilename.isEmpty())
+	{
+		ccConsole::Warning(tr("Save labelInfo cancelled"));
+		return;
+	}
+	QXlsx::Document xlsxW;
+	enum Column{
+		Column_DeviceId=1,
+		Column_FactoryName,
+		Column_VoltageLevel,
+		Column_AreaName,
+		Column_IntervalName,
+		Column_DeviceName,
+	};
+	QMap<Column, QString> columnNameMap = {
+		{Column_DeviceId,QStringLiteral("编号")},
+		{Column_FactoryName,QStringLiteral("变电站名称")},
+		{Column_VoltageLevel,QStringLiteral("电压等级")},
+		{Column_AreaName,QStringLiteral("区域名称")},
+		{Column_IntervalName,QStringLiteral("间隔名称")},
+		{Column_DeviceName,QStringLiteral("设备名称")},
+	};
+	ccHObject::Container intervalGroups;
+	labelGroup->filterChildren(intervalGroups,true,CC_TYPES::OBJECT);
+	int row=2;
+	int maxPointCount=0;
+	for(auto intervalGroup:intervalGroups)
+	{
+	    QString intervalName=intervalGroup->getName();
+		ccHObject::Container deviceObjects;
+		intervalGroup->filterChildren(deviceObjects,true,CC_TYPES::POLY_LINE);
+		for(auto deviceObject:deviceObjects)
+		{
+			ccPolyline* polyline=ccHObjectCaster::ToPolyline(deviceObject);
+			if(polyline)
+			{
+				LabelInfo labelInfo=polyline->getLabelInfo();
+				xlsxW.write(row,Column_DeviceId,labelInfo.deviceId);
+				xlsxW.write(row,Column_IntervalName,intervalName);
+				xlsxW.write(row,Column_DeviceName,labelInfo.deviceName);
+				maxPointCount = maxPointCount > polyline->size() ? maxPointCount : polyline->size();
+				for(int i=0;i<polyline->size();i++)
+				{
+					const CCVector3* point=polyline->getPoint(i);
+					xlsxW.write(row,Column_DeviceName+3*i+1,point->x);
+					xlsxW.write(row,Column_DeviceName+3*i+2,point->y);
+					xlsxW.write(row,Column_DeviceName+3*i+3,point->z);
+				}
+				row++;
+			}
+		}
+	}
+	//添加列名
+	for(auto it=columnNameMap.begin();it!=columnNameMap.end();++it)
+	{
+		xlsxW.write(1,it.key(),it.value());
+	}
+	for(int i=0;i<maxPointCount;++i)
+	{
+		xlsxW.write(1,Column_DeviceName+3*i+1,QString("X%1").arg(i+1));
+		xlsxW.write(1,Column_DeviceName+3*i+2,QString("Y%1").arg(i + 1));
+		xlsxW.write(1,Column_DeviceName+3*i+3,QString("Z%1").arg(i + 1));
+	}
+	if (xlsxW.saveAs(selectedFilename))
+	{
+		ccLog::Print(QStringLiteral("导出标注信息成功"));
+	}
+}
 
 void MainWindow::populateActionList()
 {
@@ -12262,7 +12356,6 @@ void MainWindow::populateActionList()
     m_actions.push_back(m_UI->actionEnableVisualDebugTraces);
     m_actions.push_back(m_UI->actionRGBToGreyScale);
     m_actions.push_back(m_UI->actionTracePolyline);
-	m_actions.push_back(m_UI->actionLabel);
     m_actions.push_back(m_UI->actionEnableQtWarnings);
     m_actions.push_back(m_UI->actionGlobalShiftSettings);
     m_actions.push_back(m_UI->actionEnableCameraLink);
@@ -12307,6 +12400,9 @@ void MainWindow::populateActionList()
     m_actions.push_back(m_UI->actionPromoteCircleToCylinder);
     m_actions.push_back(m_UI->actionViewInformation);
     m_actions.push_back(m_UI->actionLockView3DRotationAxis);
+	m_actions.push_back(m_UI->actionLabel);
+	m_actions.push_back(m_UI->actionSaveLabelInfo);
+
 }
 
 

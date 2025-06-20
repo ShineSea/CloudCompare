@@ -717,10 +717,12 @@ QTreeView::branch:open:has-children:has-siblings  {
    <addaction name="actionSave"/>
    <addaction name="actionSaveProject"/>
    <addaction name="separator"/>
+   <addaction name="actionLabel"/>
+   <addaction name="actionSaveLabelInfo"/>
+   <addaction name="separator"/>
    <addaction name="actionPointPicking"/>
    <addaction name="actionPointListPicking"/>
    <addaction name="actionTracePolyline"/>
-   <addaction name="actionLabel"/>
    <addaction name="actionClone"/>
    <addaction name="actionMerge"/>
    <addaction name="actionDelete"/>
@@ -741,6 +743,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    <addaction name="actionTranslateRotate"/>
    <addaction name="actionCrossSection"/>
    <addaction name="actionExtractSections"/>
+   <addaction name="separator"/>
   </widget>
   <widget class="QToolBar" name="toolBarSFTools">
    <property name="windowTitle">
@@ -3327,6 +3330,18 @@ The active scalar field should have integer values.</string>
    </property>
    <property name="toolTip">
     <string>Label</string>
+   </property>
+  </action>
+  <action name="actionSaveLabelInfo">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/saveLabelInfo.png</normaloff>:/CC/images/saveLabelInfo.png</iconset>
+   </property>
+   <property name="text">
+    <string>保存标注信息</string>
+   </property>
+   <property name="toolTip">
+    <string>保存标注信息</string>
    </property>
   </action>
  </widget>

@@ -33,6 +33,8 @@ add_subdirectory( pluginManager )
 
 add_subdirectory( extern/QCustomPlot EXCLUDE_FROM_ALL )
 
+add_subdirectory( extern/QXlsx)
+
 qt5_wrap_ui( generated_ui_list ${ui_list} )
 qt5_add_resources( generated_qrc_list ${qrc_list} )
 
@@ -53,6 +55,7 @@ target_link_libraries( ${PROJECT_NAME}
     CCAppCommon
     QCustomPlot
     Qt5::PrintSupport
+	QXlsx::QXlsx
 )
 
 if( CCCORELIB_USE_QT_CONCURRENT )
