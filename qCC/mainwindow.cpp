@@ -12165,6 +12165,10 @@ void MainWindow::doActionSaveLabelInfo()
 	if (xlsxW.saveAs(selectedFilename))
 	{
 		ccLog::Print(QStringLiteral("导出标注信息成功"));
+		QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("导出标注信息成功！"));	
+	}
+	else {
+		ccLog::Error(QStringLiteral("导出标注信息成功"));
 	}
 }
 

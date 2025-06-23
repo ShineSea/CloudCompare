@@ -465,6 +465,7 @@ void ccLabelTool::onItemPicked(const PickedItem& pi)
 		m_poly3DVertices->setDisplay(m_associatedWin);
 
 		m_poly3D = new ccPolyline(m_poly3DVertices, static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE));
+		m_poly3D->setClosed(true);
 		m_poly3D->setTempColor(ccColor::green);
 		m_poly3D->set2DMode(false);
 		m_poly3D->addChild(m_poly3DVertices);
