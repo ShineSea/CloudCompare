@@ -74,17 +74,18 @@ ccLabelTool::ccLabelTool(ccPickingHub* pickingHub, QWidget* parent)
 	connect(this, &ccLabelTool::shortcutTriggered, this, &ccLabelTool::onShortcutTriggered);
 
 	m_polyTipVertices = new ccPointCloud("Tip vertices", static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE_TIP_VERTICES));
-	m_polyTipVertices->reserve(2);
+	m_polyTipVertices->reserve(3);
 	m_polyTipVertices->addPoint(CCVector3(0, 0, 0));
+	m_polyTipVertices->addPoint(CCVector3(1, 1, 1));
 	m_polyTipVertices->addPoint(CCVector3(1, 1, 1));
 	m_polyTipVertices->setEnabled(false);
 
 	m_polyTip = new ccPolyline(m_polyTipVertices, static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE_TIP));
 	m_polyTip->setForeground(true);
-	m_polyTip->setTempColor(ccColor::green);
+	m_polyTip->setTempColor(ccColor::orange);
 	m_polyTip->set2DMode(true);
-	m_polyTip->reserve(2);
-	m_polyTip->addPointIndex(0, 2);
+	m_polyTip->reserve(3);
+	m_polyTip->addPointIndex(0, 3);
 	m_polyTip->setWidth(2);
 	m_polyTip->addChild(m_polyTipVertices);
 
@@ -406,19 +407,7 @@ void ccLabelTool::updatePolyLineTip(int x, int y, Qt::MouseButtons buttons)
 		return;
 	}
 
-	assert(m_polyTip && m_polyTipVertices && m_polyTipVertices->size() == 2);
-
-	//we replace the last point by the new one
-	{
-		QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(x, y);
-		CCVector3 P2D(	static_cast<PointCoordinateType>(pos2D.x()),
-						static_cast<PointCoordinateType>(pos2D.y()),
-						0);
-
-		CCVector3* lastP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(1));
-		*lastP = P2D;
-	}
-
+	assert(m_polyTip && m_polyTipVertices && m_polyTipVertices->size() == 3);
 	//just in case (e.g. if the view has been rotated or zoomed)
 	//we also update the first vertex position!
 	{
@@ -432,10 +421,38 @@ void ccLabelTool::updatePolyLineTip(int x, int y, Qt::MouseButtons buttons)
 
 		CCVector3* firstP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(0));
 		*firstP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), //we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
-							static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
-							0);
+			static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
+			0);
 
 	}
+
+
+	//we replace the last point by the new one
+	{
+		QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(x, y);
+		CCVector3 P2D(	static_cast<PointCoordinateType>(pos2D.x()),
+						static_cast<PointCoordinateType>(pos2D.y()),
+						0);
+
+		CCVector3* middleP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(1));
+		*middleP = P2D;
+	}
+
+	{
+		const CCVector3* P3D = m_poly3DVertices->getPoint(0);
+
+		ccGLCameraParameters camera;
+		m_associatedWin->getGLCameraParameters(camera);
+
+		CCVector3d A2D;
+		camera.project(*P3D, A2D);
+
+		CCVector3* lastP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(2));
+		*lastP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), //we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
+			static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
+			0);
+	}
+
 
 	m_polyTip->setEnabled(true);
 
@@ -504,7 +521,21 @@ void ccLabelTool::onItemPicked(const PickedItem& pi)
 	m_poly3DVertices->addPoint(pi.P3D);
 	m_poly3D->addPointIndex(m_poly3DVertices->size() - 1);
 	m_segmentParams.emplace_back(m_associatedWin, pi.clickPoint.x(), pi.clickPoint.y());
+	if (m_poly3DVertices->size() == 1)
+	{
+		const CCVector3* P3D = m_poly3DVertices->getPoint(0);
 
+		ccGLCameraParameters camera;
+		m_associatedWin->getGLCameraParameters(camera);
+
+		CCVector3d A2D;
+		camera.project(*P3D, A2D);
+
+		CCVector3* lastP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(2));
+		*lastP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), //we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
+			static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
+			0);
+	}
 	//we replace the first point of the tip by this new point
 	{
 		QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(pi.clickPoint.x(), pi.clickPoint.y());
