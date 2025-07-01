@@ -34,6 +34,8 @@
 #include <cassert>
 #include <cmath>
 
+#include <QShortcut>
+
 #include "db_tree/ccDBRoot.h"
 
 ccLabelDeviceTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay *display, int x, int y)
@@ -64,6 +66,10 @@ ccLabelDeviceTool::ccLabelDeviceTool(ccPickingHub *pickingHub, QWidget *parent)
 	addOverriddenShortcut(Qt::Key_Escape); // escape key for the "cancel" button
 	addOverriddenShortcut(Qt::Key_Return); // return key for the "apply" button
 	connect(this, &ccLabelDeviceTool::shortcutTriggered, this, &ccLabelDeviceTool::onShortcutTriggered);
+
+	QShortcut* undoShortcut = new QShortcut(QKeySequence::Undo, this);
+	undoShortcut->setContext(Qt::ApplicationShortcut);
+	connect(undoShortcut, &QShortcut::activated, this, &ccLabelDeviceTool::undo);
 
 	m_polyTipVertices = new ccPointCloud("Tip vertices", static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE_TIP_VERTICES));
 	m_polyTipVertices->reserve(2);
@@ -204,6 +210,53 @@ void ccLabelDeviceTool::stop(bool accepted)
 	}
 
 	ccOverlayDialog::stop(accepted);
+}
+
+void ccLabelDeviceTool::undo()
+{
+	m_poly3D->setEnabled(false);
+	m_polyTip->setEnabled(false);
+	if (m_poly3D)
+	{
+		m_poly3D->resize(m_poly3D->size() - 1);
+	}
+	if (m_poly3DVertices)
+	{
+		std::vector<CCVector3> points;
+		for (int i = 0; i < m_poly3DVertices->size()-1; ++i)
+		{
+			points.push_back(*(m_poly3DVertices->getPoint(i)));
+		}
+		m_poly3DVertices->reset();
+		m_poly3DVertices->reserve(static_cast<unsigned>(points.size()));
+		for (const auto &point : points)
+		{
+			m_poly3DVertices->addPoint(point);
+		}
+	}
+	if(m_poly3DVertices->size()>=1)
+	{
+		const CCVector3* P3D = m_poly3DVertices->getPoint(m_poly3DVertices->size() - 1);
+
+		ccGLCameraParameters camera;
+		m_associatedWin->getGLCameraParameters(camera);
+
+		CCVector3d A2D;
+		camera.project(*P3D, A2D);
+
+		CCVector3* firstP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(0));
+		*firstP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), // we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
+			static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
+			0);
+		if (!m_done)
+		{
+			m_polyTip->setEnabled(true);
+		}
+	}
+	m_poly3D->setEnabled(true);
+	m_associatedWin->redraw(true, false);
+	
+	
 }
 
 void ccLabelDeviceTool::updatePolyLineTip(int x, int y, Qt::MouseButtons buttons)
@@ -476,8 +529,9 @@ void ccLabelDeviceTool::exportLine()
 			MainWindow::TheInstance()->addToDB(intervalGroup);
 		}
 		auto splitPolylines = getSplitPolylines();
-		for (auto &polyline : splitPolylines)
+		for (int i=0;i<splitPolylines.size();++i)
 		{
+			auto polyline = splitPolylines[i];
 			ccPointCloud *poly3DVertices = new ccPointCloud();
 			poly3DVertices->setEnabled(false);
 			poly3DVertices->setDisplay(m_associatedWin);
@@ -488,14 +542,18 @@ void ccLabelDeviceTool::exportLine()
 			}
 
 			ccPolyline *poly3D = new ccPolyline(poly3DVertices);
-			poly3D->reserve(polyline.size());
-			poly3D->addPointIndex(0, polyline.size());
+			poly3D->reserve(polyline.size()/2);
+			poly3D->addPointIndex(0, polyline.size()/2);
+			poly3D->setClosed(true);
 			poly3D->setTempColor(ccColor::green);
 			poly3D->setDisplay(m_associatedWin);
-			poly3D->setClosed(true);
 			poly3D->set2DMode(false);
 			poly3D->addChild(poly3DVertices);
 			poly3D->setWidth(2);
+			LabelInfo labelInfo;
+			labelInfo.deviceId = m_ui->tableDeviceInfo->item(i, 0)->text();
+			labelInfo.deviceName = m_ui->tableDeviceInfo->item(i, 1)->text();
+			poly3D->setLabelInfo(labelInfo);
 			intervalGroup->addChild(poly3D);
 			MainWindow::TheInstance()->addToDB(poly3D);
 		}
@@ -616,38 +674,51 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 	{
 		return result;
 	}
+	unsigned backBottomStart = 0;
 	unsigned frontBottomStart = 1;
 	unsigned frontBottomEnd = pointCount - 1;
 
-	const CCVector3 bottomFirst = *(m_poly3DVertices->getPoint(frontBottomStart));
-	const CCVector3 bottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd - 1));
-	CCVector3 totalBottomEdge = bottomLast - bottomFirst; // 底边向量
-	double totalBottomEdgeLength = totalBottomEdge.normd();
-	const CCVector3 topLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
-	const CCVector3 topFirst = topLast - totalBottomEdge;
+	const CCVector3 frontBottomFirst = *(m_poly3DVertices->getPoint(frontBottomStart));
+	const CCVector3 frontBottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd - 1));
+	CCVector3 totalFrontBottomEdge = frontBottomLast - frontBottomFirst; 
+	double totalFrontBottomEdgeLength = totalFrontBottomEdge.normd();
+	const CCVector3 frontTopLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
+	const CCVector3 frontTopFirst = frontTopLast - totalFrontBottomEdge;
 
-	std::vector<CCVector3> bottomPoints;
-	std::vector<CCVector3> topPoints;
-
-	bottomPoints.push_back(bottomFirst);
-	topPoints.push_back(topFirst);
+    const CCVector3 backBottomFirst = *(m_poly3DVertices->getPoint(backBottomStart));
+	const CCVector3 backTopFirst = frontTopFirst-(frontBottomFirst-backBottomFirst);
+	
+	std::vector<CCVector3> frontBottomPoints;
+	std::vector<CCVector3> frontTopPoints;
+	std::vector<CCVector3> backBottomPoints;
+	std::vector<CCVector3> backTopPoints;
+	frontBottomPoints.push_back(frontBottomFirst);
+	frontTopPoints.push_back(frontTopFirst);
+	backBottomPoints.push_back(backBottomFirst);
+	backTopPoints.push_back(backTopFirst);
 	for (unsigned i = frontBottomStart + 1; i < frontBottomEnd; ++i)
 	{
 		const CCVector3 currentBottom = *(m_poly3DVertices->getPoint(i));
-		CCVector3 bottomEdge = currentBottom - bottomFirst;
+		CCVector3 bottomEdge = currentBottom - frontBottomFirst;
 		double bottomEdgeLength = bottomEdge.normd();
-		double ratio = bottomEdgeLength / totalBottomEdgeLength;
+		double ratio = bottomEdgeLength / totalFrontBottomEdgeLength;
 
-		bottomPoints.push_back(totalBottomEdge * ratio + bottomFirst);
-		topPoints.push_back(totalBottomEdge * ratio + topFirst);
+		frontBottomPoints.push_back(totalFrontBottomEdge * ratio + frontBottomFirst);
+		frontTopPoints.push_back(totalFrontBottomEdge * ratio + frontTopFirst);
+		backBottomPoints.push_back(totalFrontBottomEdge * ratio + backBottomFirst);
+		backTopPoints.push_back(totalFrontBottomEdge * ratio + backTopFirst);
 	}
-	for (int i = 0; i < bottomPoints.size() - 1; i++)
+	for (int i = 0; i < frontBottomPoints.size() - 1; i++)
 	{
 		std::vector<CCVector3> quad;
-		quad.push_back(bottomPoints[i]);
-		quad.push_back(bottomPoints[i + 1]);
-		quad.push_back(topPoints[i + 1]);
-		quad.push_back(topPoints[i]);
+		quad.push_back(frontBottomPoints[i]);
+		quad.push_back(frontBottomPoints[i + 1]);
+		quad.push_back(frontTopPoints[i + 1]);
+		quad.push_back(frontTopPoints[i]);
+		quad.push_back(backBottomPoints[i]);
+		quad.push_back(backBottomPoints[i + 1]);
+		quad.push_back(backTopPoints[i + 1]);
+		quad.push_back(backTopPoints[i]);
 		result.push_back(quad);
 	}
 	return result;

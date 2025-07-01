@@ -58,6 +58,7 @@ protected:
 	void apply();
 	void cancel();
 	void exportLine();
+	void undo();
 	inline void continueEdition()  { restart(false); }
 	inline void resetLine() { restart(true); }
 

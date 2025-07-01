@@ -1830,7 +1830,7 @@ bool cc2DLabel::pointPicking(	const CCVector2d& clickPos,
 		}
 
 		CCVector3d xy = (Y - X);
-		xy .normalize();
+		xy.normalize();
 
 		for (unsigned i = 0; i < size(); ++i)
 		{
