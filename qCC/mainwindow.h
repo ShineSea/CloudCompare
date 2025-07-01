@@ -56,7 +56,7 @@ class ccRecentFiles;
 class ccSectionExtractionTool;
 class ccStdPluginInterface;
 class ccTracePolylineTool;
-class ccLabelTool;
+class ccLabelDeviceTool;
 class ccShortcutDialog;
 
 struct dbTreeSelectionInfo;
@@ -421,9 +421,9 @@ private:
 	void activateTracePolylineMode();
 	void deactivateTracePolylineMode(bool);
 
-	//Label tool
-	void activateLabelMode();
-	void deactivateLabelMode(bool);
+	//Label device tool
+	void activateLabelDeviceMode();
+	void deactivateLabelDeviceMode(bool);
 
 	//Section extraction
 	void activateSectionExtractionMode();
@@ -640,7 +640,7 @@ private: //members
 	//! Polyline tracing tool
 	ccTracePolylineTool * m_tplTool;
 	//! Label tool
-	ccLabelTool * m_labelTool;
+	ccLabelDeviceTool * m_labelDeviceTool;
 	//! Section extraction dialog
 	ccSectionExtractionTool* m_seTool;
 	//! Graphical transformation dialog

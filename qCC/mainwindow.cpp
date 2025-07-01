@@ -116,7 +116,7 @@
 #include "ccSORFilterDlg.h"
 #include "ccSubsamplingDlg.h"
 #include "ccTracePolylineTool.h"
-#include "ccLabelTool.h"
+#include "ccLabelDeviceTool.h"
 #include "ccTranslationManager.h"
 #include "ccUnrollDlg.h"
 #include "ccVolumeCalcTool.h"
@@ -214,7 +214,7 @@ MainWindow::MainWindow()
 	, m_cpeDlg(nullptr)
 	, m_gsTool(nullptr)
 	, m_tplTool(nullptr)
-	, m_labelTool(nullptr)
+	, m_labelDeviceTool(nullptr)
 	, m_seTool(nullptr)
 	, m_transTool(nullptr)
 	, m_clipTool(nullptr)
@@ -838,7 +838,7 @@ void MainWindow::connectActions()
 	//hidden
 	connect(m_UI->actionEnableVisualDebugTraces,	&QAction::triggered, this, &MainWindow::toggleVisualDebugTraces);
 
-	connect(m_UI->actionLabel,						&QAction::triggered, this, &MainWindow::activateLabelMode);
+	connect(m_UI->actionLabelDevice,				&QAction::triggered, this, &MainWindow::activateLabelDeviceMode);
 	connect(m_UI->actionSaveLabelInfo,&QAction::triggered, this, &MainWindow::doActionSaveLabelInfo);
 }
 
@@ -6994,7 +6994,7 @@ void MainWindow::deactivateTracePolylineMode(bool)
 	}
 }
 
-void MainWindow::activateLabelMode()
+void MainWindow::activateLabelDeviceMode()
 {
 	ccGLWindowInterface* win = getActiveGLWindow();
 	if (!win)
@@ -7002,14 +7002,14 @@ void MainWindow::activateLabelMode()
 		return;
 	}
 
-	if (!m_labelTool)
+	if (!m_labelDeviceTool)
 	{
-		m_labelTool = new ccLabelTool(m_pickingHub, this);
-		connect(m_labelTool, &ccOverlayDialog::processFinished, this, &MainWindow::deactivateLabelMode);
-		registerOverlayDialog(m_labelTool, Qt::TopRightCorner);
+		m_labelDeviceTool = new ccLabelDeviceTool(m_pickingHub, this);
+		connect(m_labelDeviceTool, &ccOverlayDialog::processFinished, this, &MainWindow::deactivateLabelDeviceMode);
+		registerOverlayDialog(m_labelDeviceTool, Qt::TopRightCorner);
 	}
 
-	m_labelTool->linkWith(win);
+	m_labelDeviceTool->linkWith(win);
 
 	freezeUI(true);
 	m_UI->toolBarView->setDisabled(false);
@@ -7017,13 +7017,13 @@ void MainWindow::activateLabelMode()
 	//we disable all other windows
 	disableAllBut(win);
 
-	if (!m_labelTool->start())
-		deactivateLabelMode(false);
+	if (!m_labelDeviceTool->start())
+		deactivateLabelDeviceMode(false);
 	else
 		updateOverlayDialogsPlacement();
 }
 
-void MainWindow::deactivateLabelMode(bool)
+void MainWindow::deactivateLabelDeviceMode(bool)
 {
 	//we enable all GL windows
 	enableAll();
@@ -11402,7 +11402,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 
 	//menuEdit->setEnabled(atLeastOneEntity);
 	//menuTools->setEnabled(atLeastOneEntity);
-	m_UI->actionLabel->setEnabled(!dbIsEmpty);
+	m_UI->actionLabelDevice->setEnabled(!dbIsEmpty);
 	m_UI->actionSaveLabelInfo->setEnabled(!dbIsEmpty);
 
 	m_UI->actionTracePolyline->setEnabled(!dbIsEmpty);
@@ -12404,7 +12404,7 @@ void MainWindow::populateActionList()
     m_actions.push_back(m_UI->actionPromoteCircleToCylinder);
     m_actions.push_back(m_UI->actionViewInformation);
     m_actions.push_back(m_UI->actionLockView3DRotationAxis);
-	m_actions.push_back(m_UI->actionLabel);
+	m_actions.push_back(m_UI->actionLabelDevice);
 	m_actions.push_back(m_UI->actionSaveLabelInfo);
 
 }

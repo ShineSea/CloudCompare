@@ -717,7 +717,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    <addaction name="actionSave"/>
    <addaction name="actionSaveProject"/>
    <addaction name="separator"/>
-   <addaction name="actionLabel"/>
+   <addaction name="actionLabelDevice"/>
    <addaction name="actionSaveLabelInfo"/>
    <addaction name="separator"/>
    <addaction name="actionPointPicking"/>
@@ -3320,16 +3320,16 @@ The active scalar field should have integer values.</string>
     <string>Shortcut settings</string>
    </property>
   </action>
-  <action name="actionLabel">
+  <action name="actionLabelDevice">
    <property name="icon">
     <iconset resource="../icons.qrc">
      <normaloff>:/CC/images/label.png</normaloff>:/CC/images/label.png</iconset>
    </property>
    <property name="text">
-    <string>Label</string>
+    <string>LabelDevice</string>
    </property>
    <property name="toolTip">
-    <string>Label</string>
+    <string>LabelDevice</string>
    </property>
   </action>
   <action name="actionSaveLabelInfo">
