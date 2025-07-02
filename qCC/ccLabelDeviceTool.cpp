@@ -67,7 +67,7 @@ ccLabelDeviceTool::ccLabelDeviceTool(ccPickingHub *pickingHub, QWidget *parent)
 	addOverriddenShortcut(Qt::Key_Return); // return key for the "apply" button
 	connect(this, &ccLabelDeviceTool::shortcutTriggered, this, &ccLabelDeviceTool::onShortcutTriggered);
 
-	QShortcut* undoShortcut = new QShortcut(QKeySequence::Undo, this);
+	QShortcut *undoShortcut = new QShortcut(QKeySequence::Undo, this);
 	undoShortcut->setContext(Qt::ApplicationShortcut);
 	connect(undoShortcut, &QShortcut::activated, this, &ccLabelDeviceTool::undo);
 
@@ -216,14 +216,10 @@ void ccLabelDeviceTool::undo()
 {
 	m_poly3D->setEnabled(false);
 	m_polyTip->setEnabled(false);
-	if (m_poly3D)
-	{
-		m_poly3D->resize(m_poly3D->size() - 1);
-	}
 	if (m_poly3DVertices)
 	{
 		std::vector<CCVector3> points;
-		for (int i = 0; i < m_poly3DVertices->size()-1; ++i)
+		for (int i = 0; i < m_poly3DVertices->size() - 1; ++i)
 		{
 			points.push_back(*(m_poly3DVertices->getPoint(i)));
 		}
@@ -234,29 +230,24 @@ void ccLabelDeviceTool::undo()
 			m_poly3DVertices->addPoint(point);
 		}
 	}
-	if(m_poly3DVertices->size()>=1)
+	if (m_poly3D)
 	{
-		const CCVector3* P3D = m_poly3DVertices->getPoint(m_poly3DVertices->size() - 1);
-
-		ccGLCameraParameters camera;
-		m_associatedWin->getGLCameraParameters(camera);
-
-		CCVector3d A2D;
-		camera.project(*P3D, A2D);
-
-		CCVector3* firstP = const_cast<CCVector3*>(m_polyTipVertices->getPointPersistentPtr(0));
-		*firstP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), // we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
-			static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
-			0);
+		int size = std::min(unsigned int(4), m_poly3DVertices->size());
+		m_poly3D->resize(size);
+		if(size>0)
+			m_poly3D->addPointIndex(0, size);
+	}
+	if (m_poly3DVertices->size() >= 1)
+	{
+		updatePolyTipFirstP();
 		if (!m_done)
 		{
 			m_polyTip->setEnabled(true);
 		}
 	}
 	m_poly3D->setEnabled(true);
-	m_associatedWin->redraw(true, false);
-	
-	
+	updatePolyDevices();
+	m_associatedWin->redraw(false, false);
 }
 
 void ccLabelDeviceTool::updatePolyLineTip(int x, int y, Qt::MouseButtons buttons)
@@ -293,20 +284,7 @@ void ccLabelDeviceTool::updatePolyLineTip(int x, int y, Qt::MouseButtons buttons
 	assert(m_polyTip && m_polyTipVertices && m_polyTipVertices->size() == 2);
 	// just in case (e.g. if the view has been rotated or zoomed)
 	// we also update the first vertex position!
-	{
-		const CCVector3 *P3D = m_poly3DVertices->getPoint(m_poly3DVertices->size() - 1);
-
-		ccGLCameraParameters camera;
-		m_associatedWin->getGLCameraParameters(camera);
-
-		CCVector3d A2D;
-		camera.project(*P3D, A2D);
-
-		CCVector3 *firstP = const_cast<CCVector3 *>(m_polyTipVertices->getPointPersistentPtr(0));
-		*firstP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), // we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
-							static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
-							0);
-	}
+	updatePolyTipFirstP();
 
 	// we replace the last point by the new one
 	{
@@ -383,19 +361,16 @@ void ccLabelDeviceTool::onItemPicked(const PickedItem &pi)
 	}
 
 	m_poly3DVertices->addPoint(pi.P3D);
-	m_poly3D->addPointIndex(m_poly3DVertices->size() - 1);
+	int size = std::min(unsigned int(4), m_poly3DVertices->size());
+	m_poly3D->resize(size);
+	if (size > 0)
+		m_poly3D->addPointIndex(0, size);
 	m_segmentParams.emplace_back(m_associatedWin, pi.clickPoint.x(), pi.clickPoint.y());
-	// we replace the first point of the tip by this new point
-	{
-		QPointF pos2D = m_associatedWin->toCenteredGLCoordinates(pi.clickPoint.x(), pi.clickPoint.y());
-		CCVector3 P2D(static_cast<PointCoordinateType>(pos2D.x()),
-					  static_cast<PointCoordinateType>(pos2D.y()),
-					  0);
 
-		CCVector3 *firstTipPoint = const_cast<CCVector3 *>(m_polyTipVertices->getPointPersistentPtr(0));
-		*firstTipPoint = P2D;
-		m_polyTip->setEnabled(false); // don't need to display it for now
-	}
+	updatePolyTipFirstP();
+
+	m_polyTip->setEnabled(false);
+	updatePolyDevices();
 	m_associatedWin->redraw(false, false);
 }
 
@@ -434,15 +409,7 @@ void ccLabelDeviceTool::closePolyLine(int, int)
 			m_done = true;
 			m_associatedWin->redraw(true, false);
 		}
-		// 更新信息表格
-		int nextDeviceId = getNextDeviceId();
-		int bIndex = m_ui->tableDeviceInfo->rowCount();
-		m_ui->tableDeviceInfo->setRowCount(m_poly3D->size() - 3);
-		for (int i = bIndex; i < m_ui->tableDeviceInfo->rowCount(); ++i)
-		{
-			m_ui->tableDeviceInfo->setItem(i, 0, new QTableWidgetItem(QString::number(nextDeviceId++)));
-			m_ui->tableDeviceInfo->setItem(i, 1, new QTableWidgetItem(QStringLiteral("")));
-		}
+		updateTableDeviceInfo();
 	}
 }
 
@@ -528,28 +495,9 @@ void ccLabelDeviceTool::exportLine()
 			m_intervalNameToGroupID[intervalName] = intervalGroup->getUniqueID();
 			MainWindow::TheInstance()->addToDB(intervalGroup);
 		}
-		auto splitPolylines = getSplitPolylines();
-		for (int i=0;i<splitPolylines.size();++i)
+		for (int i=0;i<m_polyDevices.size();++i)
 		{
-			auto polyline = splitPolylines[i];
-			ccPointCloud *poly3DVertices = new ccPointCloud();
-			poly3DVertices->setEnabled(false);
-			poly3DVertices->setDisplay(m_associatedWin);
-			poly3DVertices->reserve(polyline.size());
-			for (auto &point : polyline)
-			{
-				poly3DVertices->addPoint(point);
-			}
-
-			ccPolyline *poly3D = new ccPolyline(poly3DVertices);
-			poly3D->reserve(polyline.size()/2);
-			poly3D->addPointIndex(0, polyline.size()/2);
-			poly3D->setClosed(true);
-			poly3D->setTempColor(ccColor::green);
-			poly3D->setDisplay(m_associatedWin);
-			poly3D->set2DMode(false);
-			poly3D->addChild(poly3DVertices);
-			poly3D->setWidth(2);
+			auto& poly3D = m_polyDevices[i];
 			LabelInfo labelInfo;
 			labelInfo.deviceId = m_ui->tableDeviceInfo->item(i, 0)->text();
 			labelInfo.deviceName = m_ui->tableDeviceInfo->item(i, 1)->text();
@@ -676,18 +624,18 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 	}
 	unsigned backBottomStart = 0;
 	unsigned frontBottomStart = 1;
-	unsigned frontBottomEnd = pointCount - 1;
+	unsigned frontBottomEnd = 2;
+	unsigned frontTopEnd = 3;
 
 	const CCVector3 frontBottomFirst = *(m_poly3DVertices->getPoint(frontBottomStart));
-	const CCVector3 frontBottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd - 1));
-	CCVector3 totalFrontBottomEdge = frontBottomLast - frontBottomFirst; 
-	double totalFrontBottomEdgeLength = totalFrontBottomEdge.normd();
-	const CCVector3 frontTopLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
+	const CCVector3 frontBottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
+	CCVector3 totalFrontBottomEdge = frontBottomLast - frontBottomFirst;
+	const CCVector3 frontTopLast = *(m_poly3DVertices->getPoint(frontTopEnd));
 	const CCVector3 frontTopFirst = frontTopLast - totalFrontBottomEdge;
 
-    const CCVector3 backBottomFirst = *(m_poly3DVertices->getPoint(backBottomStart));
-	const CCVector3 backTopFirst = frontTopFirst-(frontBottomFirst-backBottomFirst);
-	
+	const CCVector3 backBottomFirst = *(m_poly3DVertices->getPoint(backBottomStart));
+	const CCVector3 backTopFirst = frontTopFirst - (frontBottomFirst - backBottomFirst);
+
 	std::vector<CCVector3> frontBottomPoints;
 	std::vector<CCVector3> frontTopPoints;
 	std::vector<CCVector3> backBottomPoints;
@@ -696,12 +644,27 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 	frontTopPoints.push_back(frontTopFirst);
 	backBottomPoints.push_back(backBottomFirst);
 	backTopPoints.push_back(backTopFirst);
-	for (unsigned i = frontBottomStart + 1; i < frontBottomEnd; ++i)
+
+	std::vector<int> indexs(pointCount - 2);
+	indexs[0]=frontBottomStart;
+	std::iota(indexs.begin() + 1, indexs.end()-1, 4);
+	indexs[indexs.size() - 1] = frontBottomEnd;
+
+
+	double totalFrontBottomEdgeLength = 0;
+	for (unsigned i = 0; i < indexs.size()-1;++i)
 	{
-		const CCVector3 currentBottom = *(m_poly3DVertices->getPoint(i));
-		CCVector3 bottomEdge = currentBottom - frontBottomFirst;
-		double bottomEdgeLength = bottomEdge.normd();
-		double ratio = bottomEdgeLength / totalFrontBottomEdgeLength;
+		const CCVector3 currentBottom = *(m_poly3DVertices->getPoint(indexs[i]));
+		const CCVector3 nextBottom = *(m_poly3DVertices->getPoint(indexs[i+1]));
+		totalFrontBottomEdgeLength += (nextBottom - currentBottom).normd();
+	}
+	double currentFrontBottomEdgeLength = 0;
+	for (unsigned i = 0; i < indexs.size() - 1; ++i)
+	{
+		const CCVector3 currentBottom = *(m_poly3DVertices->getPoint(indexs[i]));
+		const CCVector3 nextBottom = *(m_poly3DVertices->getPoint(indexs[i + 1]));
+		currentFrontBottomEdgeLength += (nextBottom - currentBottom).normd();
+		double ratio = currentFrontBottomEdgeLength / totalFrontBottomEdgeLength;
 
 		frontBottomPoints.push_back(totalFrontBottomEdge * ratio + frontBottomFirst);
 		frontTopPoints.push_back(totalFrontBottomEdge * ratio + frontTopFirst);
@@ -722,4 +685,67 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 		result.push_back(quad);
 	}
 	return result;
+}
+
+void ccLabelDeviceTool::updatePolyTipFirstP()
+{
+	int pointIndex = m_poly3DVertices->size() >= 4 ? 1 : m_poly3DVertices->size() - 1;
+	const CCVector3 *P3D = m_poly3DVertices->getPoint(pointIndex);
+
+	ccGLCameraParameters camera;
+	m_associatedWin->getGLCameraParameters(camera);
+
+	CCVector3d A2D;
+	camera.project(*P3D, A2D);
+
+	CCVector3 *firstP = const_cast<CCVector3 *>(m_polyTipVertices->getPointPersistentPtr(0));
+	*firstP = CCVector3(static_cast<PointCoordinateType>(A2D.x - camera.viewport[2] / 2), // we convert A2D to centered coordinates (no need to apply high DPI scale or anything!)
+						static_cast<PointCoordinateType>(A2D.y - camera.viewport[3] / 2),
+						0);
+}
+
+void ccLabelDeviceTool::updatePolyDevices()
+{
+	for (int i = 0; i < m_polyDevices.size(); ++i)
+	{
+		auto &polyDevice= m_polyDevices[i];
+		m_associatedWin->removeFromOwnDB(polyDevice);
+		delete polyDevice;
+	}
+	m_polyDevices.clear();
+	auto splitPolylines = getSplitPolylines();
+	for (int i = 0; i < splitPolylines.size(); ++i)
+	{
+		auto polyline = splitPolylines[i];
+		ccPointCloud* poly3DVertices = new ccPointCloud();
+		poly3DVertices->setEnabled(false);
+		poly3DVertices->reserve(polyline.size());
+		for (auto& point : polyline)
+		{
+			poly3DVertices->addPoint(point);
+		}
+
+		ccPolyline* poly3D = new ccPolyline(poly3DVertices);
+		poly3D->reserve(polyline.size() / 2);
+		poly3D->addPointIndex(0, polyline.size() / 2);
+		poly3D->setClosed(true);
+		poly3D->setTempColor(ccColor::green);
+		poly3D->setDisplay(m_associatedWin);
+		poly3D->addChild(poly3DVertices);
+		poly3D->setWidth(2);
+		m_associatedWin->addToOwnDB(poly3D);
+		m_polyDevices.push_back(poly3D);
+	}
+}
+
+void ccLabelDeviceTool::updateTableDeviceInfo()
+{
+	int nextDeviceId = getNextDeviceId();
+	int bIndex = m_ui->tableDeviceInfo->rowCount();
+	m_ui->tableDeviceInfo->setRowCount(m_poly3DVertices->size() - 3);
+	for (int i = bIndex; i < m_ui->tableDeviceInfo->rowCount(); ++i)
+	{
+		m_ui->tableDeviceInfo->setItem(i, 0, new QTableWidgetItem(QString::number(nextDeviceId++)));
+		m_ui->tableDeviceInfo->setItem(i, 1, new QTableWidgetItem(QStringLiteral("")));
+	}
 }

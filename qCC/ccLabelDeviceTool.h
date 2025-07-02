@@ -75,6 +75,12 @@ protected:
 
 	std::vector<std::vector<CCVector3>> getSplitPolylines() const;
 
+	void updatePolyTipFirstP();
+
+	void updatePolyDevices();
+
+	void updateTableDeviceInfo();
+
 protected:
 
 	//! Restarts the edition mode
@@ -113,6 +119,10 @@ protected:
 	ccPolyline* m_poly3D;
 	//! 3D polyline vertices
 	ccPointCloud* m_poly3DVertices;
+
+
+	std::vector<ccPolyline*> m_polyDevices;
+
 
 	//! Viewport parameters use to draw each segment of the polyline
 	std::vector<SegmentGLParams> m_segmentParams;
