@@ -79,6 +79,11 @@ public:
 	**/
 	void set2DMode(bool state);
 
+	//! Defines if the polyline is drawn as a line or a polyline
+	/** \param state if true, the polyline is drawn as a line
+	**/
+	void setDrawLine(bool state);
+
 	//! Returns whether the polyline is considered as 2D or 3D
 	inline bool is2DMode() const { return m_mode2D; }
 
@@ -231,6 +236,8 @@ protected:
 	
 	//! Whether vertices should be displayed or not
 	bool m_showVertices;
+
+	bool m_drawLine;
 
 	//! Vertex marker width
 	int m_vertMarkWidth;

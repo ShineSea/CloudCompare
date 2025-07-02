@@ -35,6 +35,7 @@
 #include <cmath>
 
 #include <QShortcut>
+#include <QHeaderView>
 
 #include "db_tree/ccDBRoot.h"
 
@@ -726,13 +727,45 @@ void ccLabelDeviceTool::updatePolyDevices()
 		}
 
 		ccPolyline* poly3D = new ccPolyline(poly3DVertices);
-		poly3D->reserve(polyline.size() / 2);
-		poly3D->addPointIndex(0, polyline.size() / 2);
 		poly3D->setClosed(true);
 		poly3D->setTempColor(ccColor::green);
 		poly3D->setDisplay(m_associatedWin);
 		poly3D->addChild(poly3DVertices);
 		poly3D->setWidth(2);
+		
+		poly3D->setDrawLine(true);
+		poly3D->reserve(24);
+		// 立方体12条边的顶点索引顺序
+		// 前面4条边（逆时针）
+		poly3D->addPointIndex(0); // 前面底边：0->1
+		poly3D->addPointIndex(1);
+		poly3D->addPointIndex(1); // 前面右边：1->2
+		poly3D->addPointIndex(2);
+		poly3D->addPointIndex(2); // 前面上边：2->3
+		poly3D->addPointIndex(3);
+		poly3D->addPointIndex(3); // 前面左边：3->0
+		poly3D->addPointIndex(0);
+		
+		// 后面4条边（逆时针）
+		poly3D->addPointIndex(4); // 后面底边：4->5
+		poly3D->addPointIndex(5);
+		poly3D->addPointIndex(5); // 后面右边：5->6
+		poly3D->addPointIndex(6);
+		poly3D->addPointIndex(6); // 后面上边：6->7
+		poly3D->addPointIndex(7);
+		poly3D->addPointIndex(7); // 后面左边：7->4
+		poly3D->addPointIndex(4);
+		
+		// 连接前后面的4条边
+		poly3D->addPointIndex(0); // 左后边：0->4
+		poly3D->addPointIndex(4);
+		poly3D->addPointIndex(1); // 右后边：1->5
+		poly3D->addPointIndex(5);
+		poly3D->addPointIndex(2); // 右前边：2->6
+		poly3D->addPointIndex(6);
+		poly3D->addPointIndex(3); // 左前边：3->7
+		poly3D->addPointIndex(7);
+		
 		m_associatedWin->addToOwnDB(poly3D);
 		m_polyDevices.push_back(poly3D);
 	}
