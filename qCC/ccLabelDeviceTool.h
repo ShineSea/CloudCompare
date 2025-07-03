@@ -29,6 +29,7 @@
 
 class ccPolyline;
 class ccPointCloud;
+class ccGenericPointCloud;
 class ccGLWindowInterface;
 class ccPickingHub;
 class ccDBRoot;
@@ -79,7 +80,18 @@ protected:
 
 	void updatePolyDevices();
 
+	void clearPolyDevices();
+
 	void updateTableDeviceInfo();
+
+
+	enum class FindPointMode {
+		FindNearest,     // 查找最近的点云
+		FindFront,      // 查找Z轴最靠前的点云
+		FindBack        // 查找Z轴最靠后的点云
+	};
+
+	CCVector3 findPoint(FindPointMode mode, const CCVector3& point,double nearstDistance=2.0) const;
 
 protected:
 
@@ -120,12 +132,9 @@ protected:
 	//! 3D polyline vertices
 	ccPointCloud* m_poly3DVertices;
 
+	ccGenericPointCloud* m_cloud;
 
 	std::vector<ccPolyline*> m_polyDevices;
-
-
-	//! Viewport parameters use to draw each segment of the polyline
-	std::vector<SegmentGLParams> m_segmentParams;
 
 	//! Current process state
 	bool m_done;

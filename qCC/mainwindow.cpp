@@ -169,6 +169,8 @@
 
 #include "xlsxdocument.h"
 
+#include "GenericIndexedCloudPersist.h"
+
 //global static pointer (as there should only be one instance of MainWindow!)
 static MainWindow* s_instance  = nullptr;
 
@@ -12124,7 +12126,6 @@ void MainWindow::doActionSaveLabelInfo()
 	ccHObject::Container intervalGroups;
 	labelGroup->filterChildren(intervalGroups,true,CC_TYPES::OBJECT);
 	int row=2;
-	int maxPointCount=0;
 	for(auto intervalGroup:intervalGroups)
 	{
 	    QString intervalName=intervalGroup->getName();
@@ -12133,16 +12134,17 @@ void MainWindow::doActionSaveLabelInfo()
 		for(auto deviceObject:deviceObjects)
 		{
 			ccPolyline* polyline=ccHObjectCaster::ToPolyline(deviceObject);
-			if(polyline)
+			CCCoreLib::GenericIndexedCloudPersist* cloud=polyline->getAssociatedCloud();
+			if(cloud)
 			{
 				LabelInfo labelInfo=polyline->getLabelInfo();
 				xlsxW.write(row,Column_DeviceId,labelInfo.deviceId);
 				xlsxW.write(row,Column_IntervalName,intervalName);
 				xlsxW.write(row,Column_DeviceName,labelInfo.deviceName);
-				maxPointCount = maxPointCount > polyline->size() ? maxPointCount : polyline->size();
-				for(int i=0;i<polyline->size();i++)
+				std::vector<int> pointIndexs={0,1,2,4};
+				for(int i=0;i<4;++i)
 				{
-					const CCVector3* point=polyline->getPoint(i);
+					const CCVector3* point=cloud->getPoint(pointIndexs[i]);
 					xlsxW.write(row,Column_DeviceName+3*i+1,point->x);
 					xlsxW.write(row,Column_DeviceName+3*i+2,point->y);
 					xlsxW.write(row,Column_DeviceName+3*i+3,point->z);
@@ -12156,7 +12158,7 @@ void MainWindow::doActionSaveLabelInfo()
 	{
 		xlsxW.write(1,it.key(),it.value());
 	}
-	for(int i=0;i<maxPointCount;++i)
+	for(int i=0;i<4;++i)
 	{
 		xlsxW.write(1,Column_DeviceName+3*i+1,QString("X%1").arg(i+1));
 		xlsxW.write(1,Column_DeviceName+3*i+2,QString("Y%1").arg(i + 1));

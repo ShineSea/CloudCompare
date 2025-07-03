@@ -39,6 +39,15 @@
 
 #include "db_tree/ccDBRoot.h"
 
+#ifdef CC_CORE_LIB_USES_TBB
+#include <tbb/parallel_for.h>
+#endif
+
+#if defined(_OPENMP)
+//OpenMP
+#include <omp.h>
+#endif
+
 ccLabelDeviceTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay *display, int x, int y)
 {
 	if (display)
@@ -105,6 +114,7 @@ ccLabelDeviceTool::~ccLabelDeviceTool()
 		delete m_poly3D;
 	m_poly3D = nullptr;
 
+	clearPolyDevices();
 	delete m_ui;
 	m_ui = nullptr;
 }
@@ -235,7 +245,7 @@ void ccLabelDeviceTool::undo()
 	{
 		int size = std::min(unsigned int(4), m_poly3DVertices->size());
 		m_poly3D->resize(size);
-		if(size>0)
+		if (size > 0)
 			m_poly3D->addPointIndex(0, size);
 	}
 	if (m_poly3DVertices->size() >= 1)
@@ -327,19 +337,18 @@ void ccLabelDeviceTool::onItemPicked(const PickedItem &pi)
 		m_poly3D = new ccPolyline(m_poly3DVertices, static_cast<unsigned>(ReservedIDs::TRACE_POLYLINE_TOOL_POLYLINE));
 		m_poly3D->showVertices(true);
 		m_poly3D->setVertexMarkerWidth(8);
-		m_poly3D->setTempColor(ccColor::green);
+		m_poly3D->setTempColor(ccColor::red);
 		m_poly3D->set2DMode(false);
 		m_poly3D->addChild(m_poly3DVertices);
 		m_poly3D->setWidth(2);
 
 		ccGenericPointCloud *cloud = ccHObjectCaster::ToGenericPointCloud(pi.entity);
+		m_cloud = cloud;
 		if (cloud)
 		{
 			// copy the first clicked entity's global shift & scale
 			m_poly3D->copyGlobalShiftAndScale(*cloud);
 		}
-
-		m_segmentParams.resize(0); // just in case
 
 		m_associatedWin->addToOwnDB(m_poly3D);
 	}
@@ -351,22 +360,11 @@ void ccLabelDeviceTool::onItemPicked(const PickedItem &pi)
 		return;
 	}
 
-	try
-	{
-		m_segmentParams.reserve(m_segmentParams.size() + 1);
-	}
-	catch (const std::bad_alloc &)
-	{
-		ccLog::Error("Not enough memory");
-		return;
-	}
-
 	m_poly3DVertices->addPoint(pi.P3D);
 	int size = std::min(unsigned int(4), m_poly3DVertices->size());
 	m_poly3D->resize(size);
 	if (size > 0)
 		m_poly3D->addPointIndex(0, size);
-	m_segmentParams.emplace_back(m_associatedWin, pi.clickPoint.x(), pi.clickPoint.y());
 
 	updatePolyTipFirstP();
 
@@ -432,10 +430,9 @@ void ccLabelDeviceTool::restart(bool reset)
 			}
 
 			delete m_poly3D;
-			m_segmentParams.resize(0);
-			// delete m_poly3DVertices;
 			m_poly3D = nullptr;
 			m_poly3DVertices = nullptr;
+			clearPolyDevices();
 			m_ui->tableDeviceInfo->clearContents();
 			m_ui->tableDeviceInfo->setRowCount(0);
 		}
@@ -474,10 +471,16 @@ void ccLabelDeviceTool::exportLine()
 		return;
 	}
 	QString intervalName = m_ui->lineEditIntervalName->text();
+	if (intervalName.isEmpty())
+		intervalName = QStringLiteral( "未命名间隔");
 
 	if (m_associatedWin)
 	{
 		m_associatedWin->removeFromOwnDB(m_poly3D);
+		for (auto &polyDevice : m_polyDevices)
+		{
+			m_associatedWin->removeFromOwnDB(polyDevice);
+		}
 	}
 
 	m_poly3D->enableTempColor(false);
@@ -496,9 +499,9 @@ void ccLabelDeviceTool::exportLine()
 			m_intervalNameToGroupID[intervalName] = intervalGroup->getUniqueID();
 			MainWindow::TheInstance()->addToDB(intervalGroup);
 		}
-		for (int i=0;i<m_polyDevices.size();++i)
+		for (int i = 0; i < m_polyDevices.size(); ++i)
 		{
-			auto& poly3D = m_polyDevices[i];
+			auto &poly3D = m_polyDevices[i];
 			LabelInfo labelInfo;
 			labelInfo.deviceId = m_ui->tableDeviceInfo->item(i, 0)->text();
 			labelInfo.deviceName = m_ui->tableDeviceInfo->item(i, 1)->text();
@@ -513,8 +516,8 @@ void ccLabelDeviceTool::exportLine()
 	}
 
 	m_poly3D = nullptr;
-	m_segmentParams.resize(0);
 	m_poly3DVertices = nullptr;
+	m_polyDevices.clear();
 	m_ui->tableDeviceInfo->clearContents();
 	m_ui->tableDeviceInfo->setRowCount(0);
 
@@ -605,7 +608,7 @@ void ccLabelDeviceTool::updateIntervalGroupMap()
 	if (!labelGroup)
 		return;
 	ccHObject::Container children;
-	labelGroup->filterChildren(children, true, CC_TYPES::OBJECT);
+	labelGroup->filterChildren(children, false, CC_TYPES::OBJECT);
 	while (!children.empty())
 	{
 		ccHObject *child = children.back();
@@ -628,14 +631,30 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 	unsigned frontBottomEnd = 2;
 	unsigned frontTopEnd = 3;
 
-	const CCVector3 frontBottomFirst = *(m_poly3DVertices->getPoint(frontBottomStart));
-	const CCVector3 frontBottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
-	CCVector3 totalFrontBottomEdge = frontBottomLast - frontBottomFirst;
-	const CCVector3 frontTopLast = *(m_poly3DVertices->getPoint(frontTopEnd));
-	const CCVector3 frontTopFirst = frontTopLast - totalFrontBottomEdge;
+	CCVector3 backBottomFirst = *(m_poly3DVertices->getPoint(backBottomStart));
+	CCVector3 frontBottomFirst = *(m_poly3DVertices->getPoint(frontBottomStart));
+	CCVector3 frontBottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
+	CCVector3 frontTopLast = *(m_poly3DVertices->getPoint(frontTopEnd));
+	/*double findDistance = (frontBottomFirst - backBottomFirst).normd() * 0.05;
+	if (std::isgreater(backBottomFirst.y ,frontBottomFirst.y))
+	{
+		backBottomFirst = findPoint(FindPointMode::FindFront, backBottomFirst, findDistance);
+		frontBottomFirst=findPoint(FindPointMode::FindBack, frontBottomFirst,findDistance);
+		frontBottomLast = findPoint(FindPointMode::FindBack, frontBottomLast, findDistance);
+		frontTopLast = findPoint(FindPointMode::FindBack, frontTopLast, findDistance);
+	}
+	else
+	{
+		backBottomFirst = findPoint(FindPointMode::FindBack, backBottomFirst, findDistance);
+		frontBottomFirst = findPoint(FindPointMode::FindFront, frontBottomFirst, findDistance);
+		frontBottomLast = findPoint(FindPointMode::FindFront, frontBottomLast, findDistance);
+		frontTopLast = findPoint(FindPointMode::FindFront, frontTopLast, findDistance);
+	}*/
+	
+	CCVector3 totalFrontBottomEdge = frontBottomLast - frontBottomFirst;	
+	CCVector3 frontTopFirst = frontTopLast - totalFrontBottomEdge;
+	CCVector3 backTopFirst = frontTopFirst - (frontBottomFirst - backBottomFirst);
 
-	const CCVector3 backBottomFirst = *(m_poly3DVertices->getPoint(backBottomStart));
-	const CCVector3 backTopFirst = frontTopFirst - (frontBottomFirst - backBottomFirst);
 
 	std::vector<CCVector3> frontBottomPoints;
 	std::vector<CCVector3> frontTopPoints;
@@ -647,16 +666,15 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 	backTopPoints.push_back(backTopFirst);
 
 	std::vector<int> indexs(pointCount - 2);
-	indexs[0]=frontBottomStart;
-	std::iota(indexs.begin() + 1, indexs.end()-1, 4);
+	indexs[0] = frontBottomStart;
+	std::iota(indexs.begin() + 1, indexs.end() - 1, 4);
 	indexs[indexs.size() - 1] = frontBottomEnd;
 
-
 	double totalFrontBottomEdgeLength = 0;
-	for (unsigned i = 0; i < indexs.size()-1;++i)
+	for (unsigned i = 0; i < indexs.size() - 1; ++i)
 	{
 		const CCVector3 currentBottom = *(m_poly3DVertices->getPoint(indexs[i]));
-		const CCVector3 nextBottom = *(m_poly3DVertices->getPoint(indexs[i+1]));
+		const CCVector3 nextBottom = *(m_poly3DVertices->getPoint(indexs[i + 1]));
 		totalFrontBottomEdgeLength += (nextBottom - currentBottom).normd();
 	}
 	double currentFrontBottomEdgeLength = 0;
@@ -666,6 +684,21 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 		const CCVector3 nextBottom = *(m_poly3DVertices->getPoint(indexs[i + 1]));
 		currentFrontBottomEdgeLength += (nextBottom - currentBottom).normd();
 		double ratio = currentFrontBottomEdgeLength / totalFrontBottomEdgeLength;
+
+		//if (std::isgreater(backBottomFirst.y ,frontBottomFirst.y))
+		//{
+		//	frontBottomPoints.push_back(findPoint(FindPointMode::FindBack, totalFrontBottomEdge * ratio + frontBottomFirst,findDistance));
+		//	frontTopPoints.push_back(findPoint(FindPointMode::FindBack, totalFrontBottomEdge * ratio + frontTopFirst,findDistance));
+		//	backBottomPoints.push_back(findPoint(FindPointMode::FindFront, totalFrontBottomEdge * ratio + backBottomFirst, findDistance));
+		//	backTopPoints.push_back(findPoint(FindPointMode::FindFront, totalFrontBottomEdge * ratio + backTopFirst, findDistance));
+		//}
+		//else
+		//{
+		//	frontBottomPoints.push_back(findPoint(FindPointMode::FindFront, totalFrontBottomEdge * ratio + frontBottomFirst, findDistance));
+		//	frontTopPoints.push_back(findPoint(FindPointMode::FindFront, totalFrontBottomEdge * ratio + frontTopFirst, findDistance));
+		//	backBottomPoints.push_back(findPoint(FindPointMode::FindBack, totalFrontBottomEdge * ratio + backBottomFirst, findDistance));
+		//	backTopPoints.push_back(findPoint(FindPointMode::FindBack, totalFrontBottomEdge * ratio + backTopFirst, findDistance));
+		//}
 
 		frontBottomPoints.push_back(totalFrontBottomEdge * ratio + frontBottomFirst);
 		frontTopPoints.push_back(totalFrontBottomEdge * ratio + frontTopFirst);
@@ -707,32 +740,26 @@ void ccLabelDeviceTool::updatePolyTipFirstP()
 
 void ccLabelDeviceTool::updatePolyDevices()
 {
-	for (int i = 0; i < m_polyDevices.size(); ++i)
-	{
-		auto &polyDevice= m_polyDevices[i];
-		m_associatedWin->removeFromOwnDB(polyDevice);
-		delete polyDevice;
-	}
-	m_polyDevices.clear();
+	clearPolyDevices();
 	auto splitPolylines = getSplitPolylines();
 	for (int i = 0; i < splitPolylines.size(); ++i)
 	{
 		auto polyline = splitPolylines[i];
-		ccPointCloud* poly3DVertices = new ccPointCloud();
+		ccPointCloud *poly3DVertices = new ccPointCloud();
 		poly3DVertices->setEnabled(false);
 		poly3DVertices->reserve(polyline.size());
-		for (auto& point : polyline)
+		for (auto &point : polyline)
 		{
 			poly3DVertices->addPoint(point);
 		}
 
-		ccPolyline* poly3D = new ccPolyline(poly3DVertices);
+		ccPolyline *poly3D = new ccPolyline(poly3DVertices);
 		poly3D->setClosed(true);
 		poly3D->setTempColor(ccColor::green);
 		poly3D->setDisplay(m_associatedWin);
 		poly3D->addChild(poly3DVertices);
 		poly3D->setWidth(2);
-		
+
 		poly3D->setDrawLine(true);
 		poly3D->reserve(24);
 		// 立方体12条边的顶点索引顺序
@@ -745,7 +772,7 @@ void ccLabelDeviceTool::updatePolyDevices()
 		poly3D->addPointIndex(3);
 		poly3D->addPointIndex(3); // 前面左边：3->0
 		poly3D->addPointIndex(0);
-		
+
 		// 后面4条边（逆时针）
 		poly3D->addPointIndex(4); // 后面底边：4->5
 		poly3D->addPointIndex(5);
@@ -755,7 +782,7 @@ void ccLabelDeviceTool::updatePolyDevices()
 		poly3D->addPointIndex(7);
 		poly3D->addPointIndex(7); // 后面左边：7->4
 		poly3D->addPointIndex(4);
-		
+
 		// 连接前后面的4条边
 		poly3D->addPointIndex(0); // 左后边：0->4
 		poly3D->addPointIndex(4);
@@ -765,10 +792,24 @@ void ccLabelDeviceTool::updatePolyDevices()
 		poly3D->addPointIndex(6);
 		poly3D->addPointIndex(3); // 左前边：3->7
 		poly3D->addPointIndex(7);
-		
+
 		m_associatedWin->addToOwnDB(poly3D);
 		m_polyDevices.push_back(poly3D);
 	}
+}
+
+void ccLabelDeviceTool::clearPolyDevices()
+{
+	for (int i = 0; i < m_polyDevices.size(); ++i)
+	{
+		auto& polyDevice = m_polyDevices[i];
+		if (m_associatedWin)
+		{
+			m_associatedWin->removeFromOwnDB(polyDevice);
+		}
+		delete polyDevice;
+	}
+	m_polyDevices.clear();
 }
 
 void ccLabelDeviceTool::updateTableDeviceInfo()
@@ -781,4 +822,62 @@ void ccLabelDeviceTool::updateTableDeviceInfo()
 		m_ui->tableDeviceInfo->setItem(i, 0, new QTableWidgetItem(QString::number(nextDeviceId++)));
 		m_ui->tableDeviceInfo->setItem(i, 1, new QTableWidgetItem(QStringLiteral("")));
 	}
+}
+
+CCVector3 ccLabelDeviceTool::findPoint(FindPointMode mode, const CCVector3 &point, double nearstDistance) const
+{
+	std::pair<double, CCVector3> nearestPoint(std::numeric_limits<double>::max(),point);
+	bool init = false;
+	int pointCount = static_cast<int>(m_cloud->size());
+#ifdef CC_CORE_LIB_USES_TBB
+	tbb::parallel_for(0, pointCount, [&](int i)
+#else
+#if defined(_OPENMP)
+#pragma omp parallel for num_threads(omp_get_max_threads())
+#endif
+	for (int i = 0; i < pointCount; ++i)
+#endif
+	{
+		const CCVector3 *P = m_cloud->getPoint(i);
+		const double squareDist = CCVector3d(point.x - P->x, point.y - P->y, point.z - P->z).norm2d();
+		if (std::isless(squareDist,nearstDistance * nearstDistance))
+		{
+			if (!init)
+			{
+				nearestPoint.first = squareDist;
+				nearestPoint.second = *P;
+				init = true;
+				continue;
+			}
+			switch (mode)
+			{
+			case FindPointMode::FindNearest:
+				if (std::isgreater(nearestPoint.first,squareDist))
+				{
+					nearestPoint.first = squareDist;
+					nearestPoint.second = *P;
+				}
+				break;
+			case FindPointMode::FindFront:
+				if (std::isgreater(P->y,nearestPoint.second.y))
+				{
+					nearestPoint.first = squareDist;
+					nearestPoint.second = *P;
+				}
+				break;
+			case FindPointMode::FindBack:
+				if (std::isless(P->y,nearestPoint.second.y))
+				{
+					nearestPoint.first = squareDist;
+					nearestPoint.second = *P;
+				}
+				break;
+			default:
+				break;
+			}
+		} }
+#ifdef CC_CORE_LIB_USES_TBB
+	);
+#endif
+	return nearestPoint.second;
 }
