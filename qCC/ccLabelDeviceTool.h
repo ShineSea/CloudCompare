@@ -51,8 +51,12 @@ public:
 
 	//inherited from ccOverlayDialog
 	virtual bool linkWith(ccGLWindowInterface* win) override;
+	void linkWithEntity(ccHObject* entity);
+
 	virtual bool start() override;
 	virtual void stop(bool accepted) override;
+
+	static ccHObject* getLabelGroup(ccHObject* entity);
 
 protected:
 
@@ -98,13 +102,8 @@ protected:
 	//! Restarts the edition mode
 	void restart(bool reset);
 
-	
-	//!获取标注组
-	ccHObject* getLabelGroup();
-
 	void updateIntervalGroupMap();
 
-	//!获取下一个设备id
 	int getNextDeviceId();
 
 	//! Viewport parameters (used for picking)
@@ -121,9 +120,6 @@ protected:
 	//! 2D polyline vertices
 	ccPointCloud* m_polyTipVertices;
 
-	//!dbRoot
-	ccDBRoot* m_dbRoot;
-
 	//!间隔groupId
 	QMap<QString, int> m_intervalNameToGroupID;
 
@@ -132,8 +128,6 @@ protected:
 	//! 3D polyline vertices
 	ccPointCloud* m_poly3DVertices;
 
-	ccGenericPointCloud* m_cloud;
-
 	std::vector<ccPolyline*> m_polyDevices;
 
 	//! Current process state
@@ -141,6 +135,9 @@ protected:
 
 	//! Picking hub
 	ccPickingHub* m_pickingHub;
+
+	ccHObject* m_associatedEntity;
+	ccHObject* m_labelContainer;
 
 	Ui::LabelDeviceDlg* m_ui;
 

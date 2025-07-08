@@ -1882,3 +1882,20 @@ bool cc2DLabel::pointPicking(	const CCVector2d& clickPos,
 
 	return (nearestPointIndex >= 0);
 }
+
+
+void cc2DLabel::setLabelInfo(const LabelPathInfo& labelInfo)
+{
+	if (labelInfo.pathId.isEmpty())
+	{
+		ccLog::Warning("[ccPolyline::setLabelInfo] Invalid label info (empty path ID)");
+		return;
+	}
+	this->setMetaData(QStringLiteral("pathId"), labelInfo.pathId);
+}
+LabelPathInfo cc2DLabel::getLabelInfo() const
+{
+	LabelPathInfo labelInfo;
+	labelInfo.pathId = this->getMetaData(QStringLiteral("pathId")).toString();
+	return labelInfo;
+}

@@ -1123,7 +1123,7 @@ void ccPolyline::onDeletionOf(const ccHObject *obj)
 	}
 }
 
-void ccPolyline::setLabelInfo(const LabelInfo &labelInfo)
+void ccPolyline::setLabelInfo(const LabelDeviceInfo &labelInfo)
 {
 	if (labelInfo.deviceId.isEmpty() && labelInfo.deviceName.isEmpty())
 	{
@@ -1131,14 +1131,14 @@ void ccPolyline::setLabelInfo(const LabelInfo &labelInfo)
 		return;
 	}
 	this->setName(QStringLiteral("%1:%2").arg(labelInfo.deviceId, labelInfo.deviceName));
-	this->setMetaData(QStringLiteral("编号"), labelInfo.deviceId);
-	this->setMetaData(QStringLiteral("设备名称"), labelInfo.deviceName);
+	this->setMetaData(QStringLiteral("deviceId"), labelInfo.deviceId);
+	this->setMetaData(QStringLiteral("deviceName"), labelInfo.deviceName);
 }
 
-LabelInfo ccPolyline::getLabelInfo() const
+LabelDeviceInfo ccPolyline::getLabelInfo() const
 {
-	LabelInfo labelInfo;
-	labelInfo.deviceId = this->getMetaData(QStringLiteral("编号")).toString();
-	labelInfo.deviceName = this->getMetaData(QStringLiteral("设备名称")).toString();
+	LabelDeviceInfo labelInfo;
+	labelInfo.deviceId = this->getMetaData(QStringLiteral("deviceId")).toString();
+	labelInfo.deviceName = this->getMetaData(QStringLiteral("deviceName")).toString();
 	return labelInfo;
 }

@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="/CC">
+    <file>images/labelPath.png</file>
     <file>images/saveLabelInfo.png</file>
     <file>images/lockedAxis.png</file>
     <file>images/ccSaveProject.png</file>

@@ -2354,7 +2354,7 @@ void ccDBRoot::editLabelInfo()
 	if(obj->isA(CC_TYPES::POLY_LINE))
 	{
 		ccPolyline* polyline = ccHObjectCaster::ToPolyline(obj);
-		LabelInfo labelInfo = polyline->getLabelInfo();
+		LabelDeviceInfo labelInfo = polyline->getLabelInfo();
 		labelInfoEditDlg dlg;
 		dlg.setLabelInfo(labelInfo);
 		if(dlg.exec()==QDialog::Accepted)

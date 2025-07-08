@@ -718,6 +718,7 @@ QTreeView::branch:open:has-children:has-siblings  {
    <addaction name="actionSaveProject"/>
    <addaction name="separator"/>
    <addaction name="actionLabelDevice"/>
+   <addaction name="actionLabelPath"/>
    <addaction name="actionSaveLabelInfo"/>
    <addaction name="separator"/>
    <addaction name="actionPointPicking"/>
@@ -3342,6 +3343,18 @@ The active scalar field should have integer values.</string>
    </property>
    <property name="toolTip">
     <string>保存标注信息</string>
+   </property>
+  </action>
+  <action name="actionLabelPath">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/CC/images/labelPath.png</normaloff>:/CC/images/labelPath.png</iconset>
+   </property>
+   <property name="text">
+    <string>标注路径</string>
+   </property>
+   <property name="toolTip">
+    <string>标注路径</string>
    </property>
   </action>
  </widget>

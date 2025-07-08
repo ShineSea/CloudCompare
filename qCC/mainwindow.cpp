@@ -116,7 +116,6 @@
 #include "ccSORFilterDlg.h"
 #include "ccSubsamplingDlg.h"
 #include "ccTracePolylineTool.h"
-#include "ccLabelDeviceTool.h"
 #include "ccTranslationManager.h"
 #include "ccUnrollDlg.h"
 #include "ccVolumeCalcTool.h"
@@ -171,6 +170,10 @@
 
 #include "GenericIndexedCloudPersist.h"
 
+
+#include "ccLabelDeviceTool.h"
+#include "ccLabelPathDlg.h"
+
 //global static pointer (as there should only be one instance of MainWindow!)
 static MainWindow* s_instance  = nullptr;
 
@@ -216,7 +219,6 @@ MainWindow::MainWindow()
 	, m_cpeDlg(nullptr)
 	, m_gsTool(nullptr)
 	, m_tplTool(nullptr)
-	, m_labelDeviceTool(nullptr)
 	, m_seTool(nullptr)
 	, m_transTool(nullptr)
 	, m_clipTool(nullptr)
@@ -226,6 +228,8 @@ MainWindow::MainWindow()
 	, m_pprDlg(nullptr)
 	, m_pfDlg(nullptr)
     , m_shortcutDlg(nullptr)
+	, m_labelDeviceTool(nullptr)
+	, m_labelPathDlg(nullptr)
 	, m_actions()
 {
 	m_UI->setupUi( this );
@@ -841,6 +845,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionEnableVisualDebugTraces,	&QAction::triggered, this, &MainWindow::toggleVisualDebugTraces);
 
 	connect(m_UI->actionLabelDevice,				&QAction::triggered, this, &MainWindow::activateLabelDeviceMode);
+	connect(m_UI->actionLabelPath,				&QAction::triggered, this, &MainWindow::activateLabelPathMode);
 	connect(m_UI->actionSaveLabelInfo,&QAction::triggered, this, &MainWindow::doActionSaveLabelInfo);
 }
 
@@ -7004,6 +7009,26 @@ void MainWindow::activateLabelDeviceMode()
 		return;
 	}
 
+	//there should be only one point cloud in current selection!
+	if (!haveOneSelection())
+	{
+		ccConsole::Error(tr("Select one and only one entity!"));
+		return;
+	}
+
+	ccHObject* entity = m_selectedEntities.front();
+	if (!entity->isKindOf(CC_TYPES::POINT_CLOUD) && !entity->isKindOf(CC_TYPES::MESH))
+	{
+		ccConsole::Error(tr("Select a cloud or a mesh"));
+		return;
+	}
+
+	if (!entity->isVisible() || !entity->isEnabled())
+	{
+		ccConsole::Error(tr("Entity must be visible!"));
+		return;
+	}
+
 	if (!m_labelDeviceTool)
 	{
 		m_labelDeviceTool = new ccLabelDeviceTool(m_pickingHub, this);
@@ -7012,6 +7037,7 @@ void MainWindow::activateLabelDeviceMode()
 	}
 
 	m_labelDeviceTool->linkWith(win);
+	m_labelDeviceTool->linkWithEntity(entity);
 
 	freezeUI(true);
 	m_UI->toolBarView->setDisabled(false);
@@ -7027,6 +7053,10 @@ void MainWindow::activateLabelDeviceMode()
 
 void MainWindow::deactivateLabelDeviceMode(bool)
 {
+	if (m_labelDeviceTool)
+	{
+		m_labelDeviceTool->linkWithEntity(nullptr);
+	}
 	//we enable all GL windows
 	enableAll();
 
@@ -7039,6 +7069,7 @@ void MainWindow::deactivateLabelDeviceMode(bool)
 	{
 		win->redraw();
 	}
+
 }
 
 void MainWindow::activatePointListPickingMode()
@@ -7156,6 +7187,73 @@ void MainWindow::deactivatePointPickingMode(bool state)
 	redrawAll();
 }
 
+
+
+void MainWindow::activateLabelPathMode()
+{
+    ccGLWindowInterface* win = getActiveGLWindow();
+    if (!win)
+        return;
+
+    //there should be only one point cloud in current selection!
+    if (!haveOneSelection())
+    {
+        ccConsole::Error(tr("Select one and only one entity!"));
+        return;
+    }
+
+    ccHObject* entity = m_selectedEntities.front();
+    if (!entity->isKindOf(CC_TYPES::POINT_CLOUD) && !entity->isKindOf(CC_TYPES::MESH))
+    {
+        ccConsole::Error(tr("Select a cloud or a mesh"));
+        return;
+    }
+
+    if (!entity->isVisible() || !entity->isEnabled())
+    {
+        ccConsole::Error(tr("Entity must be visible!"));
+        return;
+    }
+
+    if (!m_labelPathDlg)
+    {
+        m_labelPathDlg = new ccLabelPathDlg(m_pickingHub, this);
+        connect(m_labelPathDlg, &ccOverlayDialog::processFinished, this, &MainWindow::deactivateLabelPathMode);
+
+        registerOverlayDialog(m_labelPathDlg, Qt::TopRightCorner);
+    }
+
+    //DGM: we must update marker size spin box value (as it may have changed by the user with the "display dialog")
+    m_labelPathDlg->markerSizeSpinBox->setValue(win->getDisplayParameters().labelMarkerSize);
+
+    m_labelPathDlg->linkWith(win);
+    m_labelPathDlg->linkWithEntity(entity);
+
+    freezeUI(true);
+
+    //we disable all other windows
+    disableAllBut(win);
+
+    if (!m_labelPathDlg->start())
+        deactivateLabelPathMode(false);
+    else
+        updateOverlayDialogsPlacement();
+}
+
+void MainWindow::deactivateLabelPathMode(bool)
+{
+    if (m_labelPathDlg)
+	{
+		m_labelPathDlg->linkWithEntity(nullptr);
+	}
+
+	//we enable all GL windows
+	enableAll();
+
+	freezeUI(false);
+
+	updateUI();
+}
 void MainWindow::activateClippingBoxMode()
 {
 	if ( !haveSelection() )
@@ -11406,6 +11504,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	//menuTools->setEnabled(atLeastOneEntity);
 	m_UI->actionLabelDevice->setEnabled(!dbIsEmpty);
 	m_UI->actionSaveLabelInfo->setEnabled(!dbIsEmpty);
+	m_UI->actionLabelPath->setEnabled(!dbIsEmpty);
 
 	m_UI->actionTracePolyline->setEnabled(!dbIsEmpty);
 	m_UI->actionZoomAndCenter->setEnabled(atLeastOneEntity && activeWindow);
@@ -12084,31 +12183,53 @@ void MainWindow::doActionPromoteCircleToCylinder()
 
 void MainWindow::doActionSaveLabelInfo()
 {
-	ccHObject* labelGroup=m_ccRoot->find(static_cast<unsigned>(ReservedIDs::LABEL_TOOL_LABEL_GROUP));
-	if(!labelGroup)
+	if (!haveOneSelection())
 	{
-		ccConsole::Warning(tr("Label group not found"));
+		ccConsole::Error(tr("Select one and only one entity!"));
 		return;
 	}
+	
 	QSettings settings;
 	settings.beginGroup(ccPS::SaveFile());
 	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
-	QString fullPathName = currentPath;
-	fullPathName += QStringLiteral("/标注.xlsx");
-	QString selectedFilename = QFileDialog::getSaveFileName(this,
-		QStringLiteral("保存标注信息"),
-		fullPathName,
-		QStringLiteral("xlsx文件 (*.xlsx)"),
-		nullptr,
-		CCFileDialogOptions());
-	if (selectedFilename.isEmpty())
+	QString dir = QFileDialog::getExistingDirectory(
+		this,                        // 父窗口指针
+		"选择保存文件夹",             // 对话框标题
+		currentPath,            // 初始路径
+		QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+	);
+	if (dir.isEmpty())
 	{
 		ccConsole::Warning(tr("Save labelInfo cancelled"));
 		return;
 	}
+
+	bool exportOk = true;
+	exportOk &= exportDeviceInfo(dir + "/柜面台账.xlsx");
+	exportOk &= exportPathInfo(dir + "/路径.txt");
+	if (exportOk)
+	{
+		ccLog::Print(QStringLiteral("导出标注信息成功"));
+		QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("导出标注信息成功！"));
+	}
+	else
+	{
+		ccLog::Error(QStringLiteral("导出标注信息失败"));
+	}
+}
+
+bool MainWindow::exportDeviceInfo(const QString& exportFileName)
+{
+	ccHObject* entity = m_selectedEntities.front();
+	auto labelGroup = ccLabelDeviceTool::getLabelGroup(entity);
+	if (!labelGroup)
+	{
+		ccConsole::Warning("无柜面标注信息");
+		return true;
+	}
 	QXlsx::Document xlsxW;
-	enum Column{
-		Column_DeviceId=1,
+	enum Column {
+		Column_DeviceId = 1,
 		Column_FactoryName,
 		Column_VoltageLevel,
 		Column_AreaName,
@@ -12124,55 +12245,99 @@ void MainWindow::doActionSaveLabelInfo()
 		{Column_DeviceName,QStringLiteral("设备名称")},
 	};
 	ccHObject::Container intervalGroups;
-	labelGroup->filterChildren(intervalGroups,true,CC_TYPES::OBJECT);
-	int row=2;
-	for(auto intervalGroup:intervalGroups)
+	labelGroup->filterChildren(intervalGroups, true, CC_TYPES::OBJECT);
+	int row = 2;
+	for (auto intervalGroup : intervalGroups)
 	{
-	    QString intervalName=intervalGroup->getName();
+		QString intervalName = intervalGroup->getName();
 		ccHObject::Container deviceObjects;
-		intervalGroup->filterChildren(deviceObjects,true,CC_TYPES::POLY_LINE);
-		for(auto deviceObject:deviceObjects)
+		intervalGroup->filterChildren(deviceObjects, true, CC_TYPES::POLY_LINE);
+		for (auto deviceObject : deviceObjects)
 		{
-			ccPolyline* polyline=ccHObjectCaster::ToPolyline(deviceObject);
-			CCCoreLib::GenericIndexedCloudPersist* cloud=polyline->getAssociatedCloud();
-			if(cloud)
+			ccPolyline* polyline = ccHObjectCaster::ToPolyline(deviceObject);
+			CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
+			if (cloud)
 			{
-				LabelInfo labelInfo=polyline->getLabelInfo();
-				xlsxW.write(row,Column_DeviceId,labelInfo.deviceId);
-				xlsxW.write(row,Column_IntervalName,intervalName);
-				xlsxW.write(row,Column_DeviceName,labelInfo.deviceName);
-				std::vector<int> pointIndexs={0,1,2,4};
-				for(int i=0;i<4;++i)
+				LabelDeviceInfo labelInfo = polyline->getLabelInfo();
+				xlsxW.write(row, Column_DeviceId, labelInfo.deviceId);
+				xlsxW.write(row, Column_IntervalName, intervalName);
+				xlsxW.write(row, Column_DeviceName, labelInfo.deviceName);
+				std::vector<int> pointIndexs = { 0,1,2,4 };
+				for (int i = 0; i < 4; ++i)
 				{
-					const CCVector3* point=cloud->getPoint(pointIndexs[i]);
-					xlsxW.write(row,Column_DeviceName+3*i+1,point->x);
-					xlsxW.write(row,Column_DeviceName+3*i+2,point->y);
-					xlsxW.write(row,Column_DeviceName+3*i+3,point->z);
+					const CCVector3* point = cloud->getPoint(pointIndexs[i]);
+					xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
+					xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
+					xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
 				}
 				row++;
 			}
 		}
 	}
 	//添加列名
-	for(auto it=columnNameMap.begin();it!=columnNameMap.end();++it)
+	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
 	{
-		xlsxW.write(1,it.key(),it.value());
+		xlsxW.write(1, it.key(), it.value());
 	}
-	for(int i=0;i<4;++i)
+	for (int i = 0; i < 4; ++i)
 	{
-		xlsxW.write(1,Column_DeviceName+3*i+1,QString("X%1").arg(i+1));
-		xlsxW.write(1,Column_DeviceName+3*i+2,QString("Y%1").arg(i + 1));
-		xlsxW.write(1,Column_DeviceName+3*i+3,QString("Z%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
 	}
-	if (xlsxW.saveAs(selectedFilename))
-	{
-		ccLog::Print(QStringLiteral("导出标注信息成功"));
-		QMessageBox::information(this, QStringLiteral("提示"), QStringLiteral("导出标注信息成功！"));	
-	}
-	else {
-		ccLog::Error(QStringLiteral("导出标注信息成功"));
-	}
+	return xlsxW.saveAs(exportFileName);
 }
+
+bool MainWindow::exportPathInfo(const QString& exportFileName)
+{
+	ccHObject* entity = m_selectedEntities.front();
+	auto labelPathGroup = ccLabelPathDlg::getLabelPathGroup(entity);
+	if (!labelPathGroup)
+	{
+		ccConsole::Warning("无路径标注信息");
+		return true;
+	}
+	QFile fp(exportFileName);
+	if (!fp.open(QFile::WriteOnly))
+	{
+		return false;
+}
+	CCVector3d shift;
+	double scale = 1.0;
+	ccGenericPointCloud* asCloud = ccHObjectCaster::ToGenericPointCloud(entity);
+	if (asCloud)
+	{
+		shift = asCloud->getGlobalShift();
+		scale = asCloud->getGlobalScale();
+	}
+
+	QTextStream stream(&fp);
+	stream.setRealNumberPrecision(12);
+	ccHObject::Container labels;
+	unsigned count = labelPathGroup->filterChildren(labels, false, CC_TYPES::LABEL_2D);
+
+	for (unsigned i = 0; i < count; ++i)
+	{
+		if (labels[i]->isA(CC_TYPES::LABEL_2D)) //Warning: cc2DViewportLabel is also a kind of 'CC_TYPES::LABEL_2D'!
+		{
+			cc2DLabel* label = static_cast<cc2DLabel*>(labels[i]);
+			const cc2DLabel::PickedPoint& PP = label->getPickedPoint(0);
+			CCVector3 P = PP.getPointPosition();
+			if (label->isVisible() && label->size() == 1)
+			{
+				stream << label->getLabelInfo().pathId<<' '
+					<< static_cast<double>(P.x) / scale - shift.x << ' '
+					<< static_cast<double>(P.y) / scale - shift.y << ' '
+					<< static_cast<double>(P.z) / scale - shift.z << endl;
+			}
+		}
+	}
+	fp.close();
+	return true;
+}
+
+
+
 
 void MainWindow::populateActionList()
 {
@@ -12408,6 +12573,7 @@ void MainWindow::populateActionList()
     m_actions.push_back(m_UI->actionLockView3DRotationAxis);
 	m_actions.push_back(m_UI->actionLabelDevice);
 	m_actions.push_back(m_UI->actionSaveLabelInfo);
+    m_actions.push_back(m_UI->actionLabelPath);
 
 }
 
@@ -12416,3 +12582,5 @@ void MainWindow::showShortcutDialog()
 {
 	m_shortcutDlg->exec();
 }
+
+

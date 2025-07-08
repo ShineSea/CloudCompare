@@ -26,7 +26,7 @@
 class ccPointCloud;
 class ccGenericPointCloud;
 
-struct LabelInfo
+struct LabelDeviceInfo
 {
 	QString deviceId;
 	QString deviceName;
@@ -185,8 +185,8 @@ public:
 	//! Helper to determine if the input cloud acts as vertices of a polyline
 	static bool IsCloudVerticesOfPolyline(ccGenericPointCloud* cloud, ccPolyline** polyline = nullptr);
 
-	void setLabelInfo(const LabelInfo& labelInfo);
-	LabelInfo getLabelInfo() const;
+	void setLabelInfo(const LabelDeviceInfo& labelInfo);
+	LabelDeviceInfo getLabelInfo() const;
 
 
 public: //meta-data keys

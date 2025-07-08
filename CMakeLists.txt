@@ -11,7 +11,7 @@ if ( ${CMAKE_CURRENT_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
 endif()
 
 if(MSVC)
-  add_compile_options("/source-charset:utf-8")
+  add_compile_options("/utf-8")
 endif()
 
 

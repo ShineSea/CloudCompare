@@ -56,8 +56,9 @@ class ccRecentFiles;
 class ccSectionExtractionTool;
 class ccStdPluginInterface;
 class ccTracePolylineTool;
-class ccLabelDeviceTool;
 class ccShortcutDialog;
+class ccLabelDeviceTool;
+class ccLabelPathDlg;
 
 struct dbTreeSelectionInfo;
 
@@ -447,6 +448,10 @@ private:
 	void activateRegisterPointPairTool();
 	void deactivateRegisterPointPairTool(bool);
 
+	//Label path mechanism
+	void activateLabelPathMode();
+	void deactivateLabelPathMode(bool);
+
 	//Current active scalar field
 	void doActionToggleActiveSFColorScale();
 	void doActionShowActiveSFPrevious();
@@ -572,6 +577,9 @@ private:
 	void populateActionList();
 	void showShortcutDialog();
 
+	bool exportDeviceInfo(const QString &exportFileName);
+	bool exportPathInfo(const QString& exportFileName);
+
 private: //members
 
 	//! Main UI
@@ -639,8 +647,6 @@ private: //members
 	ccGraphicalSegmentationTool* m_gsTool;
 	//! Polyline tracing tool
 	ccTracePolylineTool * m_tplTool;
-	//! Label tool
-	ccLabelDeviceTool * m_labelDeviceTool;
 	//! Section extraction dialog
 	ccSectionExtractionTool* m_seTool;
 	//! Graphical transformation dialog
@@ -659,6 +665,13 @@ private: //members
 	ccPrimitiveFactoryDlg* m_pfDlg;
 	//! Shortcut management dialog
 	ccShortcutDialog *m_shortcutDlg;
+	
+	
+	//! Label tool
+	ccLabelDeviceTool * m_labelDeviceTool;
+	 
+	//! Label path dialog
+	ccLabelPathDlg* m_labelPathDlg;
 
 	/*** plugins ***/
 	//! Manages plugins - menus, toolbars, and the about dialog

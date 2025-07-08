@@ -48,6 +48,8 @@
 #include <omp.h>
 #endif
 
+static const char s_labelContainerName[] = "柜面标注";
+
 ccLabelDeviceTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay *display, int x, int y)
 {
 	if (display)
@@ -59,7 +61,7 @@ ccLabelDeviceTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay *display,
 }
 
 ccLabelDeviceTool::ccLabelDeviceTool(ccPickingHub *pickingHub, QWidget *parent)
-	: ccOverlayDialog(parent), m_polyTip(nullptr), m_polyTipVertices(nullptr), m_poly3D(nullptr), m_poly3DVertices(nullptr), m_done(false), m_pickingHub(pickingHub), m_ui(new Ui::LabelDeviceDlg), m_dbRoot(MainWindow::TheInstance()->db())
+	: ccOverlayDialog(parent), m_polyTip(nullptr), m_polyTipVertices(nullptr), m_poly3D(nullptr), m_poly3DVertices(nullptr), m_done(false), m_pickingHub(pickingHub), m_ui(new Ui::LabelDeviceDlg)
 {
 	assert(pickingHub);
 
@@ -117,6 +119,9 @@ ccLabelDeviceTool::~ccLabelDeviceTool()
 	clearPolyDevices();
 	delete m_ui;
 	m_ui = nullptr;
+
+	m_associatedEntity = nullptr;
+	m_labelContainer = nullptr;
 }
 
 void ccLabelDeviceTool::onShortcutTriggered(int key)
@@ -167,8 +172,17 @@ bool ccLabelDeviceTool::linkWith(ccGLWindowInterface *win)
 	return true;
 }
 
-static int s_defaultPickingRadius = 1;
-static int s_overSamplingCount = 1;
+void ccLabelDeviceTool::linkWithEntity(ccHObject* entity)
+{
+	m_associatedEntity = entity;
+
+	if (m_associatedEntity)
+	{
+		//find default container
+		m_labelContainer = getLabelGroup(m_associatedEntity);
+	}
+}
+
 bool ccLabelDeviceTool::start()
 {
 	assert(m_polyTip);
@@ -220,6 +234,9 @@ void ccLabelDeviceTool::stop(bool accepted)
 		m_associatedWin->setWindowCursor(Qt::ArrowCursor);
 	}
 
+
+	m_associatedEntity = nullptr;
+	m_labelContainer = nullptr;
 	ccOverlayDialog::stop(accepted);
 }
 
@@ -326,7 +343,17 @@ void ccLabelDeviceTool::onItemPicked(const PickedItem &pi)
 		// means that the mouse has been clicked but no point was found!
 		return;
 	}
+	if (pi.entity != m_associatedEntity)
+		return;
 
+	if (!m_labelContainer)
+	{
+		m_labelContainer = new ccHObject(s_labelContainerName);
+		m_associatedEntity->addChild(m_labelContainer);
+		m_labelContainer->setDisplay(m_associatedWin);
+		MainWindow::TheInstance()->addToDB(m_labelContainer, false, true, false, false);
+	}
+	assert(m_labelContainer);
 	// if the 3D polyline doesn't exist yet, we create it
 	if (!m_poly3D || !m_poly3DVertices)
 	{
@@ -343,7 +370,6 @@ void ccLabelDeviceTool::onItemPicked(const PickedItem &pi)
 		m_poly3D->setWidth(2);
 
 		ccGenericPointCloud *cloud = ccHObjectCaster::ToGenericPointCloud(pi.entity);
-		m_cloud = cloud;
 		if (cloud)
 		{
 			// copy the first clicked entity's global shift & scale
@@ -490,19 +516,19 @@ void ccLabelDeviceTool::exportLine()
 		ccHObject *intervalGroup = nullptr;
 		if (m_intervalNameToGroupID.contains(intervalName))
 		{
-			intervalGroup = m_dbRoot->find(m_intervalNameToGroupID[intervalName]);
+			intervalGroup = m_associatedEntity->find(m_intervalNameToGroupID[intervalName]);
 		}
 		if (!intervalGroup)
 		{
 			intervalGroup = new ccHObject(intervalName);
-			getLabelGroup()->addChild(intervalGroup);
+			getLabelGroup(m_associatedEntity)->addChild(intervalGroup);
 			m_intervalNameToGroupID[intervalName] = intervalGroup->getUniqueID();
 			MainWindow::TheInstance()->addToDB(intervalGroup);
 		}
 		for (int i = 0; i < m_polyDevices.size(); ++i)
 		{
 			auto &poly3D = m_polyDevices[i];
-			LabelInfo labelInfo;
+			LabelDeviceInfo labelInfo;
 			labelInfo.deviceId = m_ui->tableDeviceInfo->item(i, 0)->text();
 			labelInfo.deviceName = m_ui->tableDeviceInfo->item(i, 1)->text();
 			poly3D->setLabelInfo(labelInfo);
@@ -558,7 +584,7 @@ void ccLabelDeviceTool::onWidthSizeChanged(int width)
 
 int ccLabelDeviceTool::getNextDeviceId()
 {
-	auto labelGroup = getLabelGroup();
+	auto labelGroup = getLabelGroup(m_associatedEntity);
 	if (!labelGroup)
 		return 1;
 	ccHObject::Container children;
@@ -569,7 +595,7 @@ int ccLabelDeviceTool::getNextDeviceId()
 	{
 		ccHObject *child = children.back();
 		children.pop_back();
-		LabelInfo labelInfo = ccHObjectCaster::ToPolyline(child)->getLabelInfo();
+		LabelDeviceInfo labelInfo = ccHObjectCaster::ToPolyline(child)->getLabelInfo();
 		if (!labelInfo.deviceId.isEmpty())
 		{
 			maxId = std::max(maxId, labelInfo.deviceId.toInt());
@@ -590,25 +616,29 @@ int ccLabelDeviceTool::getNextDeviceId()
 	return maxId + 1;
 }
 
-ccHObject *ccLabelDeviceTool::getLabelGroup()
+ccHObject *ccLabelDeviceTool::getLabelGroup(ccHObject* entity)
 {
-	ccHObject *labelGroup = nullptr;
-	if (!(labelGroup = m_dbRoot->find(static_cast<unsigned>(ReservedIDs::LABEL_TOOL_LABEL_GROUP))))
+	ccHObject::Container groups;
+	entity->filterChildren(groups, true, CC_TYPES::HIERARCHY_OBJECT);
+
+	for (ccHObject::Container::const_iterator it = groups.begin(); it != groups.end(); ++it)
 	{
-		labelGroup = new ccHObject(QStringLiteral("标注"), static_cast<unsigned>(ReservedIDs::LABEL_TOOL_LABEL_GROUP));
-		MainWindow::TheInstance()->addToDB(labelGroup);
+		if ((*it)->getName() == s_labelContainerName)
+		{
+			return *it;
+		}
 	}
-	return labelGroup;
+	return nullptr;
 }
 
 void ccLabelDeviceTool::updateIntervalGroupMap()
 {
 	m_intervalNameToGroupID.clear();
-	auto labelGroup = getLabelGroup();
+	auto labelGroup = getLabelGroup(m_associatedEntity);
 	if (!labelGroup)
 		return;
 	ccHObject::Container children;
-	labelGroup->filterChildren(children, false, CC_TYPES::OBJECT);
+	labelGroup->filterChildren(children, false, CC_TYPES::HIERARCHY_OBJECT);
 	while (!children.empty())
 	{
 		ccHObject *child = children.back();
@@ -828,7 +858,8 @@ CCVector3 ccLabelDeviceTool::findPoint(FindPointMode mode, const CCVector3 &poin
 {
 	std::pair<double, CCVector3> nearestPoint(std::numeric_limits<double>::max(),point);
 	bool init = false;
-	int pointCount = static_cast<int>(m_cloud->size());
+	ccGenericPointCloud* cloud = ccHObjectCaster::ToGenericPointCloud(m_associatedEntity);
+	int pointCount = static_cast<int>(cloud->size());
 #ifdef CC_CORE_LIB_USES_TBB
 	tbb::parallel_for(0, pointCount, [&](int i)
 #else
@@ -838,7 +869,7 @@ CCVector3 ccLabelDeviceTool::findPoint(FindPointMode mode, const CCVector3 &poin
 	for (int i = 0; i < pointCount; ++i)
 #endif
 	{
-		const CCVector3 *P = m_cloud->getPoint(i);
+		const CCVector3 *P = cloud->getPoint(i);
 		const double squareDist = CCVector3d(point.x - P->x, point.y - P->y, point.z - P->z).norm2d();
 		if (std::isless(squareDist,nearstDistance * nearstDistance))
 		{
