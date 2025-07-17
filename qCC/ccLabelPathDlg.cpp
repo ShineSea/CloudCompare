@@ -112,7 +112,7 @@ void ccLabelPathDlg::linkWithEntity(ccHObject* entity)
 		for (unsigned i = 0; i < count; ++i)
 		{
 			m_lastPreviousID = std::max(m_lastPreviousID, previousPickedPoints[i]->getUniqueID());
-			m_lastPathID = std::max(m_lastPathID, previousPickedPoints[i]->getLabelInfo().pathId.toUInt());
+			m_lastPathID = std::max(m_lastPathID, previousPickedPoints[i]->getPathInfo().pathId.toUInt());
 		}
 	}
 
@@ -307,7 +307,7 @@ void ccLabelPathDlg::updateList()
 		CCVector3 P = PP.getPointPosition();
 		CCVector3d Pd = (showAbsolute ? PP.cloudOrVertices()->toGlobal3d(P) : P);
 
-		QString pathId = label->getLabelInfo().pathId;
+		QString pathId = label->getPathInfo().pathId;
 
 		//update name as well
 		if (	label->getUniqueID() > m_lastPreviousID
@@ -352,7 +352,8 @@ void ccLabelPathDlg::processPickedPoint(const PickedItem& picked)
 	newLabel->setDisplayedIn2D(false);
 	newLabel->displayPointLegend(true);
 	newLabel->setCollapsed(true);
-	newLabel->setLabelInfo(LabelPathInfo{QString::number(++m_lastPathID)});
+	newLabel->setLabelInfoType(LabelInfoType::Path);
+	newLabel->setPathInfo(PathLabelInfo{QString::number(++m_lastPathID)});
 	ccGenericGLDisplay* display = m_associatedEntity->getDisplay();
 	if (display)
 	{

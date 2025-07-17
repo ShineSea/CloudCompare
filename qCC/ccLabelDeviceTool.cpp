@@ -528,10 +528,11 @@ void ccLabelDeviceTool::exportLine()
 		for (int i = 0; i < m_polyDevices.size(); ++i)
 		{
 			auto &poly3D = m_polyDevices[i];
-			LabelDeviceInfo labelInfo;
+			DeviceLabelInfo labelInfo;
 			labelInfo.deviceId = m_ui->tableDeviceInfo->item(i, 0)->text();
 			labelInfo.deviceName = m_ui->tableDeviceInfo->item(i, 1)->text();
-			poly3D->setLabelInfo(labelInfo);
+			poly3D->setLabelInfoType(LabelInfoType::Device);
+			poly3D->setDeviceInfo(labelInfo);
 			intervalGroup->addChild(poly3D);
 			MainWindow::TheInstance()->addToDB(poly3D);
 		}
@@ -595,7 +596,7 @@ int ccLabelDeviceTool::getNextDeviceId()
 	{
 		ccHObject *child = children.back();
 		children.pop_back();
-		LabelDeviceInfo labelInfo = ccHObjectCaster::ToPolyline(child)->getLabelInfo();
+		DeviceLabelInfo labelInfo = child->getDeviceInfo();
 		if (!labelInfo.deviceId.isEmpty())
 		{
 			maxId = std::max(maxId, labelInfo.deviceId.toInt());

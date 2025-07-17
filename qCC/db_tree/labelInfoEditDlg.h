@@ -6,7 +6,7 @@
 namespace Ui {
 	class LabelInfoEditDlg;
 }
-struct LabelDeviceInfo;
+struct DeviceLabelInfo;
 class labelInfoEditDlg : public QDialog
 {
 	Q_OBJECT
@@ -15,8 +15,8 @@ public:
 	explicit labelInfoEditDlg(QWidget* parent = nullptr);
 	~labelInfoEditDlg();
 
-    void setLabelInfo(const LabelDeviceInfo& labelInfo);
-    LabelDeviceInfo getLabelInfo() const;
+    void setLabelInfo(const DeviceLabelInfo& labelInfo);
+    DeviceLabelInfo getLabelInfo() const;
 private:
 	Ui::LabelInfoEditDlg* m_ui;
 };

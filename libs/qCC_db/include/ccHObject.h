@@ -24,6 +24,45 @@
 
 class QIcon;
 
+
+enum class LabelInfoType {
+	None,
+	Factory,
+	Area,
+	Interval,
+	Device,
+	Path
+};
+struct FactoryLabelInfo
+{
+	QString factoryId;
+	QString factoryName;
+	QString voltageLevel;
+};
+
+struct AreaLabelInfo
+{
+	QString areaId;
+	QString areaName;
+};
+
+
+struct IntervalLabelInfo
+{
+	QString intervalId;
+	QString intervalName;
+};
+
+struct DeviceLabelInfo
+{
+	QString deviceId;
+	QString deviceName;
+};
+
+struct PathLabelInfo {
+	QString pathId;
+};
+
 //! Hierarchical CloudCompare Object
 class QCC_DB_LIB_API ccHObject : public ccObject, public ccDrawableObject
 {
@@ -419,6 +458,25 @@ public:
 	//! Pops the last pushed display state (overridden)
 	void popDisplayState(bool apply = true) override;
 
+
+	void setLabelInfoType(LabelInfoType type);
+	LabelInfoType getLabelInfoType() const;
+
+	void setFactoryInfo(const FactoryLabelInfo& info);
+	FactoryLabelInfo getFactoryInfo() const;
+
+	void setAreaInfo(const AreaLabelInfo& info);
+	AreaLabelInfo getAreaInfo() const;
+
+	void setIntervalInfo(const IntervalLabelInfo& info);
+	IntervalLabelInfo getIntervalInfo() const;
+
+	void setDeviceInfo(const DeviceLabelInfo& labelInfo);
+	DeviceLabelInfo getDeviceInfo() const;
+
+	void setPathInfo(const PathLabelInfo& labelInfo);
+	PathLabelInfo getPathInfo() const;
+
 protected:
 
 	//! Sets parent object
@@ -494,6 +552,7 @@ protected:
 
 	//! Flag to safely handle dependencies when the object is being deleted
 	bool m_isDeleting;
+
 };
 
 /*** Helpers ***/

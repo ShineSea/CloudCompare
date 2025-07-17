@@ -69,7 +69,9 @@
 #include <cstring>
 
 #include "labelInfoEditDlg.h"
-
+#include "factoryEditDlg.h"
+#include "areaEditDlg.h"
+#include "intervalEditDlg.h"
 //Minimum width of the left column of the properties tree view
 static const int c_propViewLeftColumnWidth = 115;
 
@@ -105,94 +107,94 @@ public:
 		{
 			init();
 		}
-		
+
 		if ( !mIconMap.contains( id ) )
 		{
 			return (locked ? mDefaultIcons.second : mDefaultIcons.first);
 		}
-		
+
 		const int		index = mIconMap[id];
 		const IconPair	&icons = mIconList[index];
-		
+
 		if ( !locked )
 		{
 			return icons.first;
 		}
-		
+
 		// If we don't have a locked icon for this class, return the unlocked one
 		return (icons.second.isNull() ? icons.first : icons.second);
 	}
-	
+
 private:
 	using IconPair = QPair<QIcon, QIcon>;	// unlocked icon, locked icon (if any)
 	using IconPairList = QVector<IconPair>;
 	using IconMap = QMap<CC_CLASS_ENUM, int>;
-	
+
 	void	init()
 	{
 		// Special case for default - no icon in general, but a lock if locked
 		mDefaultIcons = { {}, QIcon(QStringLiteral(":/CC/images/dbLockSymbol.png")) };
-		
+
 		const int	hObjectIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbHObjectSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbHObjectSymbolLocked.png")) } );
-		
+
 		const int	cloudIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbCloudSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbCloudSymbolLocked.png")) } );
-		
+
 		const int	geomIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbMiscGeomSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbMiscGeomSymbolLocked.png")) } );
-		
+
 		const int	meshIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbMeshSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbMeshSymbolLocked.png")) } );
-		
+
 		const int	subMeshIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbSubMeshSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbSubMeshSymbolLocked.png")) } );
-		
+
 		const int	polyLineIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbPolylineSymbol.png")),
 							{} } );
-		
+
 		const int	octreeIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbOctreeSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbOctreeSymbolLocked.png")) } );
-		
+
 		const int	calibratedImageIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbCalibratedImageSymbol.png")),
 							{} } );
-		
+
 		const int	imageIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbImageSymbol.png")),
 							{} } );
-		
+
 		const int	sensorIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbGBLSensorSymbol.png")),
 							{} } );
-		
+
 		const int	cameraSensorIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbCamSensorSymbol.png")),
 							{} } );
-		
+
 		const int	materialSetIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbMaterialSymbol.png")),
 							{} } );
-		
+
 		const int	containerIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbContainerSymbol.png")),
 							QIcon(QStringLiteral(":/CC/images/dbContainerSymbolLocked.png")) } );
-		
+
 		const int	labelIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbLabelSymbol.png")),
 							{} } );
-		
+
 		const int	viewportObjIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbViewportSymbol.png")),
 							{} } );
-		
+
 		const int	viewportLabelIndex = mIconList.count();
 		mIconList.append( { QIcon(QStringLiteral(":/CC/images/dbAreaLabelSymbol.png")),
 							{} } );
@@ -200,7 +202,7 @@ private:
 		const int	circleIndex = mIconList.count();
 		mIconList.append({ QIcon(QStringLiteral(":/CC/images/dbCircle.png")),
 							{} });
-		
+
 		mIconMap = {
 			{ CC_TYPES::HIERARCHY_OBJECT, hObjectIndex },
 			{ CC_TYPES::POINT_CLOUD, cloudIndex },
@@ -236,10 +238,10 @@ private:
 			{ CC_TYPES::VIEWPORT_2D_OBJECT, viewportObjIndex },
 			{ CC_TYPES::VIEWPORT_2D_LABEL, viewportLabelIndex },
 			{ CC_TYPES::COORDINATESYSTEM, geomIndex }
-			
+
 		};
 	}
-	
+
 	IconPair		mDefaultIcons;
 	IconPairList	mIconList;
 	IconMap			mIconMap;
@@ -286,7 +288,11 @@ ccDBRoot::ccDBRoot(ccCustomQTreeView* dbTreeWidget, QTreeView* propertiesTreeWid
 	m_alignCameraWithEntityReverse = new QAction(tr("Align camera (reverse)"), this);
 	m_enableBubbleViewMode = new QAction(tr("Bubble-view"), this);
 	m_editLabelScalarValue = new QAction(tr("Edit scalar value"), this);
-	m_editLabelInfo = new QAction(tr("Edit labelInfo"), this);
+	m_editDeviceInfo = new QAction("编辑当前设备信息", this);
+	m_editFactoryInfo = new QAction("编辑厂站信息", this);
+	m_editAreaInfo = new QAction("编辑区域信息", this);
+	m_editIntervalInfo = new QAction("编辑间隔信息", this);
+
 
 	m_contextMenuPos = QPoint(-1,-1);
 
@@ -313,7 +319,10 @@ ccDBRoot::ccDBRoot(ccCustomQTreeView* dbTreeWidget, QTreeView* propertiesTreeWid
 	connect(m_alignCameraWithEntityReverse,		&QAction::triggered,					this, &ccDBRoot::alignCameraWithEntityIndirect);
 	connect(m_enableBubbleViewMode,				&QAction::triggered,					this, &ccDBRoot::enableBubbleViewMode);
 	connect(m_editLabelScalarValue,				&QAction::triggered,					this, &ccDBRoot::editLabelScalarValue);
-	connect(m_editLabelInfo,					&QAction::triggered,					this, &ccDBRoot::editLabelInfo);
+	connect(m_editDeviceInfo,					&QAction::triggered,					this, &ccDBRoot::editDevicelInfo);
+	connect(m_editFactoryInfo,					&QAction::triggered,					this, &ccDBRoot::editFactoryInfo);
+	connect(m_editAreaInfo,						&QAction::triggered,					this, &ccDBRoot::editAreaInfo);
+	connect(m_editIntervalInfo,					&QAction::triggered,					this, &ccDBRoot::editIntervalInfo);
 	//other DB tree signals/slots connection
 	connect(m_dbTreeWidget->selectionModel(), &QItemSelectionModel::selectionChanged, this, &ccDBRoot::changeSelection);
 
@@ -658,13 +667,76 @@ QVariant ccDBRoot::data(const QModelIndex& idx, int role) const
 			baseName = QStringLiteral("2D label: ")+baseName;
 		else if (item->isA(CC_TYPES::VIEWPORT_2D_LABEL))
 			baseName = QStringLiteral("2D area label: ")+baseName;
-
+		switch(item->getLabelInfoType())
+		{
+		case LabelInfoType::Device:
+		{
+			DeviceLabelInfo deviceInfo = item->getDeviceInfo();
+			if(!deviceInfo.deviceId.isEmpty()&& !deviceInfo.deviceName.isEmpty())
+			{
+				baseName = deviceInfo.deviceName;
+			}
+			break;
+		}
+		case LabelInfoType::Factory:
+		{
+			FactoryLabelInfo factoryInfo = item->getFactoryInfo();
+			if(!factoryInfo.factoryId.isEmpty()&& !factoryInfo.factoryName.isEmpty())
+			{
+				baseName = QStringLiteral("%1 %2").arg(factoryInfo.voltageLevel).arg(factoryInfo.factoryName);
+			}
+			break;
+		}
+		case LabelInfoType::Area:
+		{
+			AreaLabelInfo areaInfo = item->getAreaInfo();
+			if(!areaInfo.areaId.isEmpty()&& !areaInfo.areaName.isEmpty())
+			{
+				baseName = areaInfo.areaName;
+			}
+			break;
+		}
+		case LabelInfoType::Interval:
+		{
+			IntervalLabelInfo intervalInfo = item->getIntervalInfo();
+			if(!intervalInfo.intervalId.isEmpty()&& !intervalInfo.intervalName.isEmpty())
+			{
+				baseName = intervalInfo.intervalName;
+			}
+			break;
+		}
+		default:
+			break;
+		}
 		return baseName;
 	}
-	
 	case Qt::EditRole:
 	{
-		return item->getName();
+		switch(item->getLabelInfoType())
+		{
+		case LabelInfoType::Device:
+		{
+			DeviceLabelInfo deviceInfo = item->getDeviceInfo();
+			return deviceInfo.deviceName	;
+		}
+		case LabelInfoType::Factory:
+		{
+			FactoryLabelInfo factoryInfo = item->getFactoryInfo();
+			return factoryInfo.factoryName;
+		}
+		case LabelInfoType::Area:
+		{
+			AreaLabelInfo areaInfo = item->getAreaInfo();
+			return areaInfo.areaName;
+		}
+		case LabelInfoType::Interval:
+		{
+			IntervalLabelInfo intervalInfo = item->getIntervalInfo();
+			return intervalInfo.intervalName;
+		}
+		default:
+			return item->getName();
+		}
 	}
 
 	case Qt::DecorationRole:
@@ -677,7 +749,7 @@ QVariant ccDBRoot::data(const QModelIndex& idx, int role) const
 		}
 
 		const bool locked = item->isLocked();
-		
+
 		switch (item->getClassID())
 		{
 			case CC_TYPES::HIERARCHY_OBJECT:
@@ -685,9 +757,9 @@ QVariant ccDBRoot::data(const QModelIndex& idx, int role) const
 				{
 					return gDBRootIcons->icon( item->getClassID(), locked );
 				}
-				
+
 				return {};
-				
+
 			default:
 			{
 				return gDBRootIcons->icon( item->getClassID(), locked );
@@ -704,17 +776,17 @@ QVariant ccDBRoot::data(const QModelIndex& idx, int role) const
 			{
 				return {};
 			}
-			
+
 			ccHObject::Container	drawableObjects;
-			
+
 			unsigned int	count = item->filterChildren( drawableObjects, true, CC_TYPES::HIERARCHY_OBJECT, true );
-			
+
 			if ( item->getChildCountRecursive() == count )
 			{
 				return {};
 			}
 		}
-		
+
 		if (item->isEnabled())
 			return Qt::Checked;
 		else
@@ -744,20 +816,57 @@ bool ccDBRoot::setData(const QModelIndex& idx, const QVariant& value, int role)
 			assert(item);
 			if (item)
 			{
-				item->setName(value.toString());
 
+				switch(item->getLabelInfoType())
+				{
+				case LabelInfoType::Device:
+				{
+					DeviceLabelInfo deviceInfo = item->getDeviceInfo();
+					deviceInfo.deviceName = value.toString();
+					item->setDeviceInfo(deviceInfo);
+					break;
+				}
+				case LabelInfoType::Factory:
+				{
+					FactoryLabelInfo factoryInfo = item->getFactoryInfo();
+					factoryInfo.factoryName = value.toString();
+					item->setFactoryInfo(factoryInfo);
+					break;
+				}
+				case LabelInfoType::Area:
+				{
+					AreaLabelInfo areaInfo = item->getAreaInfo();
+					areaInfo.areaName = value.toString();
+					item->setAreaInfo(areaInfo);
+					break;
+				}
+				case LabelInfoType::Interval:
+				{
+					IntervalLabelInfo intervalInfo = item->getIntervalInfo();
+					intervalInfo.intervalName = value.toString();
+					item->setIntervalInfo(intervalInfo);
+					break;
+				}
+				default:
+				{
+					item->setName(value.toString());
+					break;
+				}
+				}
 				//particular cases:
 				// - labels name is their title (so we update them)
 				// - name might be displayed in 3D
 				if (item->nameShownIn3D() || item->isKindOf(CC_TYPES::LABEL_2D))
+				{
 					if (item->isEnabled() && item->isVisible() && item->getDisplay())
+					{
 						item->getDisplay()->redraw();
-
+					}
+				}
 				reflectObjectPropChange(item);
 
 				Q_EMIT dataChanged(idx, idx);
 			}
-
 			return true;
 		}
 		else if (role == Qt::CheckStateRole)
@@ -796,7 +905,7 @@ QModelIndex ccDBRoot::index(int row, int column, const QModelIndex &parentIndex)
 	{
 		return QModelIndex();
 	}
-	
+
 	ccHObject *child = parent->getChild(row);
 	return child ? createIndex(row, column, child) : QModelIndex();
 }
@@ -986,7 +1095,7 @@ void ccDBRoot::selectEntities(std::unordered_set<int> entIDs)
 
 	//convert input list of IDs to proper entities
 	ccHObject::Container entities;
-	
+
 	try
 	{
 		entities.reserve(entIDs.size());
@@ -1000,7 +1109,7 @@ void ccDBRoot::selectEntities(std::unordered_set<int> entIDs)
 	for (auto entID : entIDs)
 	{
 		ccHObject* obj = find(entID);
-		
+
 		if (obj != nullptr)
 		{
 			entities.push_back(obj);
@@ -1018,7 +1127,7 @@ void ccDBRoot::selectEntities(const ccHObject::Container& entities, bool increme
 
 	//count the number of lables
 	size_t labelCount = 0;
-	
+
 	for (auto entity : entities)
 	{
 		if (entity == nullptr)
@@ -1026,7 +1135,7 @@ void ccDBRoot::selectEntities(const ccHObject::Container& entities, bool increme
 			assert(false);
 			continue;
 		}
-		
+
 		if (entity->isA(CC_TYPES::LABEL_2D))
 		{
 			++labelCount;
@@ -1035,7 +1144,7 @@ void ccDBRoot::selectEntities(const ccHObject::Container& entities, bool increme
 
 	//create new selection structure
 	QItemSelection newSelection;
-	
+
 	//shall we keep labels?
 	bool keepLabels = false;
 	{
@@ -1052,14 +1161,14 @@ void ccDBRoot::selectEntities(const ccHObject::Container& entities, bool increme
 		{
 			continue;
 		}
-		
+
 		//filter input selection (can't keep both labels and standard entities --> we can't mix them!)
 		bool isLabel = entity->isA(CC_TYPES::LABEL_2D);
-		
+
 		if (isLabel == keepLabels && (!incremental || !entity->isSelected()))
 		{
 			QModelIndex selectedIndex = index(entity);
-			
+
 			if (selectedIndex.isValid())
 			{
 				newSelection.merge(QItemSelection(selectedIndex,selectedIndex),QItemSelectionModel::Select);
@@ -1272,12 +1381,7 @@ Qt::ItemFlags ccDBRoot::flags(const QModelIndex& idx) const
 	//class type based filtering
 	const ccHObject *item = static_cast<const ccHObject*>(idx.internalPointer());
 	assert(item);
-	if(item->isA(CC_TYPES::POLY_LINE))
-	{
-		defaultFlags |= (Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-	}else{
-		defaultFlags |= (Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable);
-	}
+	defaultFlags |= (Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsEditable);
 	if (item && !item->isLocked()) //locked items cannot be drag-dropped
 	{
 		if (item->isA(CC_TYPES::HIERARCHY_OBJECT)								||
@@ -2311,7 +2415,7 @@ void ccDBRoot::editLabelScalarValue()
 	{
 		return;
 	}
-	
+
 	ccPointCloud* pc = static_cast<ccPointCloud*>(P._cloud);
 	ccScalarField* sf = pc->getCurrentDisplayedScalarField();
 	if (!sf)
@@ -2340,7 +2444,7 @@ void ccDBRoot::editLabelScalarValue()
 	}
 }
 
-void ccDBRoot::editLabelInfo()
+void ccDBRoot::editDevicelInfo()
 {
 	QItemSelectionModel* qism = m_dbTreeWidget->selectionModel();
 	QModelIndexList selectedIndexes = qism->selectedIndexes();
@@ -2351,16 +2455,191 @@ void ccDBRoot::editLabelInfo()
 	}
 	auto selectIndex=selectedIndexes[0];
 	ccHObject* obj = static_cast<ccHObject*>(selectIndex.internalPointer());
-	if(obj->isA(CC_TYPES::POLY_LINE))
+	if(obj->getLabelInfoType()==LabelInfoType::Device)
 	{
 		ccPolyline* polyline = ccHObjectCaster::ToPolyline(obj);
-		LabelDeviceInfo labelInfo = polyline->getLabelInfo();
+		DeviceLabelInfo labelInfo = polyline->getDeviceInfo();
 		labelInfoEditDlg dlg;
 		dlg.setLabelInfo(labelInfo);
 		if(dlg.exec()==QDialog::Accepted)
 		{
-			polyline->setLabelInfo(dlg.getLabelInfo());
+			polyline->setDeviceInfo(dlg.getLabelInfo());
 			emit dataChanged(selectIndex, selectIndex);
+		}
+	}
+}
+
+ccHObject* ccDBRoot::getLabelGroup()
+{
+	QString labelGroupName = "标注";
+	ccHObject::Container children;
+	m_treeRoot->filterChildren(children,false,CC_TYPES::HIERARCHY_OBJECT);
+	while(!children.empty())
+	{
+		ccHObject *child = children.back();
+		children.pop_back();
+		if(child->getName()==labelGroupName)
+		{
+			return child;
+		}
+	}
+	ccHObject* labelGroup = new ccHObject(labelGroupName);
+	addElement(labelGroup);
+	return labelGroup;
+}
+
+void ccDBRoot::editFactoryInfo()
+{
+	FactoryEditDlg dlg;
+	QMap<QString,ccHObject*> factoryMap;
+	ccHObject* labelGroup = getLabelGroup();
+	ccHObject::Container children;
+	labelGroup->filterChildren(children,false,CC_TYPES::HIERARCHY_OBJECT);
+	while(!children.empty())
+	{
+		ccHObject *child = children.back();
+		children.pop_back();
+		if(child->getLabelInfoType()==LabelInfoType::Factory)
+		{
+			FactoryLabelInfo labelInfo = child->getFactoryInfo();
+			dlg.addFactoryInfo(labelInfo);
+			factoryMap[labelInfo.factoryId] = child;
+		}
+	}
+	if(dlg.exec()==QDialog::Accepted)
+	{
+		QList<FactoryLabelInfo> labelInfos = dlg.getAllFactoryInfo();
+		foreach(FactoryLabelInfo labelInfo, labelInfos)
+		{
+
+			ccHObject* newFactory = new ccHObject(labelInfo.factoryName);
+			newFactory->setLabelInfoType(LabelInfoType::Factory);
+			newFactory->setFactoryInfo(labelInfo);
+			labelGroup->addChild(newFactory);
+			addElement(newFactory);
+			if(factoryMap.contains(labelInfo.factoryId))
+			{
+				ccHObject* 	preFactory = factoryMap[labelInfo.factoryId];
+				preFactory->transferChildren(*newFactory);
+			}
+		}
+		for(ccHObject* child:factoryMap)
+		{
+			removeElement(child);
+		}
+	}
+}
+
+void ccDBRoot::editAreaInfo()
+{
+	AreaEditDlg dlg;
+	QItemSelectionModel* qism = m_dbTreeWidget->selectionModel();
+	QModelIndexList selectedIndexes = qism->selectedIndexes();
+	int selCount = selectedIndexes.size();
+	if (selCount != 1)
+	{
+		return;
+	}
+	auto selectIndex = selectedIndexes[0];
+	ccHObject* obj = static_cast<ccHObject*>(selectIndex.internalPointer());
+	ccHObject* factoryGroup = nullptr;
+	if (obj->getLabelInfoType() == LabelInfoType::Factory)
+		factoryGroup = obj;
+	if (obj->getLabelInfoType() == LabelInfoType::Area)
+		factoryGroup = obj->getParent();
+	if (!factoryGroup)
+		return;
+	QMap<QString, ccHObject*> areaMap;
+	ccHObject::Container children;
+	factoryGroup->filterChildren(children, false, CC_TYPES::HIERARCHY_OBJECT);
+	while (!children.empty())
+	{
+		ccHObject* child = children.back();
+		children.pop_back();
+		if (child->getLabelInfoType() == LabelInfoType::Area)
+		{
+			AreaLabelInfo labelInfo = child->getAreaInfo();
+			dlg.addAreaInfo(labelInfo);
+			areaMap[labelInfo.areaId] = child;
+		}
+	}
+	if (dlg.exec() == QDialog::Accepted)
+	{
+		QList<AreaLabelInfo> labelInfos = dlg.getAllAreaInfo();
+		foreach(AreaLabelInfo labelInfo, labelInfos)
+		{
+
+			ccHObject* newArea = new ccHObject(labelInfo.areaName);
+			newArea->setLabelInfoType(LabelInfoType::Area);
+			newArea->setAreaInfo(labelInfo);
+			factoryGroup->addChild(newArea);
+			addElement(newArea);
+			if (areaMap.contains(labelInfo.areaId))
+			{
+				ccHObject* preArea = areaMap[labelInfo.areaId];
+				preArea->transferChildren(*newArea);
+			}
+		}
+		for (ccHObject* child : areaMap)
+		{
+			removeElement(child);
+		}
+	}
+}
+
+void ccDBRoot::editIntervalInfo()
+{
+	IntervalEditDlg dlg;
+	QItemSelectionModel* qism = m_dbTreeWidget->selectionModel();
+	QModelIndexList selectedIndexes = qism->selectedIndexes();
+	int selCount = selectedIndexes.size();
+	if (selCount != 1)
+	{
+		return;
+	}
+	auto selectIndex = selectedIndexes[0];
+	ccHObject* obj = static_cast<ccHObject*>(selectIndex.internalPointer());
+	ccHObject* areaGroup = nullptr;
+	if (obj->getLabelInfoType() == LabelInfoType::Area)
+		areaGroup = obj;
+	if (obj->getLabelInfoType() == LabelInfoType::Interval)
+		areaGroup = obj->getParent();
+	if (!areaGroup)
+		return;
+	QMap<QString, ccHObject*> intervalMap;
+	ccHObject::Container children;
+	areaGroup->filterChildren(children, false, CC_TYPES::HIERARCHY_OBJECT);
+	while (!children.empty())
+	{
+		ccHObject* child = children.back();
+		children.pop_back();
+		if (child->getLabelInfoType() == LabelInfoType::Interval)
+		{
+			IntervalLabelInfo labelInfo = child->getIntervalInfo();
+			dlg.addIntervalInfo(labelInfo);
+			intervalMap[labelInfo.intervalId] = child;
+		}
+	}
+	if (dlg.exec() == QDialog::Accepted)
+	{
+		QList<IntervalLabelInfo> labelInfos = dlg.getAllIntervalInfo();
+		foreach(IntervalLabelInfo labelInfo, labelInfos)
+		{
+
+			ccHObject* newInterval = new ccHObject(labelInfo.intervalName);
+			newInterval->setLabelInfoType(LabelInfoType::Interval);
+			newInterval->setIntervalInfo(labelInfo);
+			areaGroup->addChild(newInterval);
+			addElement(newInterval);
+			if (intervalMap.contains(labelInfo.intervalId))
+			{
+				ccHObject* preInterval = intervalMap[labelInfo.intervalId];
+				preInterval->transferChildren(*newInterval);
+			}
+		}
+		for (ccHObject* child : intervalMap)
+		{
+			removeElement(child);
 		}
 	}
 }
@@ -2398,6 +2677,22 @@ void ccDBRoot::showContextMenu(const QPoint& menuPos)
 				{
 					assert(false);
 					continue;
+				}
+				if (selCount == 1)
+				{
+					menu.addAction(m_editFactoryInfo);
+					if (item->getLabelInfoType() == LabelInfoType::Factory || item->getLabelInfoType() == LabelInfoType::Area)
+					{
+						menu.addAction(m_editAreaInfo);
+					}
+					if (item->getLabelInfoType() == LabelInfoType::Area || item->getLabelInfoType() == LabelInfoType::Interval)
+					{
+						menu.addAction(m_editIntervalInfo);
+					}
+					if (item->getLabelInfoType() == LabelInfoType::Device)
+					{
+						menu.addAction(m_editDeviceInfo);
+					}
 				}
 				if (item->getChildrenNumber() > 1)
 				{
@@ -2446,14 +2741,10 @@ void ccDBRoot::showContextMenu(const QPoint& menuPos)
 						{
 							hasExacltyOneGBLSenor = true;
 						}
-						if (item->isA(CC_TYPES::POLY_LINE))
-						{
-							menu.addAction(m_editLabelInfo);
-						}
 					}
 				}
 			}
-			
+
 			if (planarEntityCount == 1)
 			{
 				menu.addAction(m_alignCameraWithEntity);

@@ -57,7 +57,7 @@ ccHObject::ccHObject(const QString& name, unsigned uniqueID/*=ccUniqueIDGenerato
 {
 	setVisible(false);
 	lockVisibility(true);
-	
+
 	m_glTransHistory.toIdentity();
 }
 
@@ -235,20 +235,20 @@ ccHObject* ccHObject::New(const QString& pluginId, const QString& classId, const
 	{
 		return nullptr;
 	}
-	
+
 	ccExternalFactory* factory = externalFactories->getFactoryByName(pluginId);
 	if (!factory)
 	{
 		return nullptr;
 	}
-	
+
 	ccHObject* obj = factory->buildObject(classId);
 
 	if (name && obj)
 	{
 		obj->setName(name);
 	}
-	
+
 	return obj;
 }
 
@@ -406,12 +406,12 @@ bool ccHObject::addChild(ccHObject* child, int dependencyFlags/*=DP_PARENT_OF_OT
 unsigned int ccHObject::getChildCountRecursive() const
 {
 	unsigned int	count = static_cast<unsigned>(m_children.size());
-	
+
 	for ( auto child : m_children )
 	{
 		count += child->getChildCountRecursive();
 	}
-	
+
 	return count;
 }
 
@@ -422,7 +422,7 @@ ccHObject* ccHObject::find(unsigned uniqueID) const
 	{
 		return const_cast<ccHObject *>(this);
 	}
-	
+
 	//otherwise we are going to test all children recursively
 	for (unsigned i = 0; i < getChildrenNumber(); ++i)
 	{
@@ -482,7 +482,7 @@ void ccHObject::transferChild(ccHObject* child, ccHObject& newParent)
 	//remove link from old parent
 	int childDependencyFlags = child->getDependencyFlagsWith(this);
 	int parentDependencyFlags = getDependencyFlagsWith(child);
-	
+
 	detachChild(child); //automatically removes any dependency with this object
 
 	newParent.addChild(child,parentDependencyFlags);
@@ -499,7 +499,7 @@ void ccHObject::transferChildren(ccHObject& newParent, bool forceFatherDependent
 		//remove link from old parent
 		int childDependencyFlags = child->getDependencyFlagsWith(this);
 		int fatherDependencyFlags = getDependencyFlagsWith(child);
-	
+
 		//we must explicitly remove any dependency with the child as we don't call 'detachChild'
 		removeDependencyWith(child);
 		child->removeDependencyWith(this);
@@ -543,7 +543,7 @@ bool ccHObject::getAbsoluteGLTransformation(ccGLMatrix& trans) const
 {
 	trans.toIdentity();
 	bool hasGLTrans = false;
-	
+
 	//recurse among ancestors to get the absolute GL transformation
 	const ccHObject* obj = this;
 	while (obj)
@@ -655,7 +655,7 @@ bool ccHObject::isBranchEnabled() const
 {
 	if (!isEnabled())
 		return false;
-	
+
 	if (m_parent)
 		return m_parent->isBranchEnabled();
 
@@ -678,7 +678,7 @@ void ccHObject::drawBB(CC_DRAW_CONTEXT& context, const ccColor::Rgb& col)
 	case SELECTION_AA_BBOX:
 		getDisplayBB_recursive(true, m_currentDisplay).draw(context, col);
 		break;
-	
+
 	case SELECTION_FIT_BBOX:
 		{
 			//get the set of OpenGL functions (version 2.1)
@@ -694,7 +694,7 @@ void ccHObject::drawBB(CC_DRAW_CONTEXT& context, const ccColor::Rgb& col)
 			}
 		}
 		break;
-	
+
 	case SELECTION_IGNORED:
 		break;
 
@@ -724,17 +724,17 @@ void ccHObject::draw(CC_DRAW_CONTEXT& context)
 {
 	if (!isEnabled())
 		return;
-	
+
 	//get the set of OpenGL functions (version 2.1)
 	QOpenGLFunctions_2_1 *glFunc = context.glFunctions<QOpenGLFunctions_2_1>();
 	assert( glFunc != nullptr );
-	
+
 	if ( glFunc == nullptr )
 		return;
 
 	//are we currently drawing objects in 2D or 3D?
 	bool draw3D = MACRO_Draw3D(context);
-	
+
 	//the entity must be either visible or selected, and of course it should be displayed in this context
 	bool drawInThisContext = ((m_visible || m_selected) && m_currentDisplay == context.display);
 
@@ -817,7 +817,7 @@ void ccHObject::draw(CC_DRAW_CONTEXT& context)
 	{
 		child->draw(context);
 	}
-	
+
 	//if the entity is currently selected, we draw its bounding-box
 	if (m_selected && draw3D && drawInThisContext && !MACRO_EntityPicking(context) && context.currentLODLevel == 0)
 	{
@@ -898,7 +898,7 @@ void ccHObject::detachChild(ccHObject* child)
 	{
 		child->setParent(nullptr);
 	}
-	
+
 	int pos = getChildIndex(child);
 	if (pos >= 0)
 	{
@@ -1042,7 +1042,7 @@ bool ccHObject::toFile(QFile& out, short dataVersion) const
 			++serializableCount;
 		}
 	}
-	
+
 	if (out.write(reinterpret_cast<const char*>(&serializableCount), sizeof(uint32_t)) < 0)
 		return WriteError();
 
@@ -1410,4 +1410,115 @@ void ccHObject::popDisplayState(bool apply/*=true*/)
 		}
 		m_displayStateStack.pop_back();
 	}
+}
+
+void ccHObject::setLabelInfoType(LabelInfoType type)
+{
+	this->setMetaData("type", static_cast<unsigned int>(type));
+}
+
+LabelInfoType ccHObject::getLabelInfoType() const
+{
+	QVariant labelType = this->getMetaData("type");
+	if (labelType.isValid())
+	{
+		return static_cast<LabelInfoType>(labelType.toUInt());
+	}
+	else {
+		return LabelInfoType::None;
+	}
+}
+
+void ccHObject::setFactoryInfo(const FactoryLabelInfo& facInfo)
+{
+	if (facInfo.factoryId.isEmpty()|| facInfo.factoryName.isEmpty() ||facInfo.voltageLevel.isEmpty())
+	{
+		return;
+	}
+	this->setMetaData(QStringLiteral("facId"), facInfo.factoryId);
+	this->setMetaData(QStringLiteral("facName"), facInfo.factoryName);
+	this->setMetaData(QStringLiteral("voltageLevel"), facInfo.voltageLevel);
+}
+
+FactoryLabelInfo ccHObject::getFactoryInfo() const
+{
+	FactoryLabelInfo facInfo;
+	facInfo.factoryId = this->getMetaData(QStringLiteral("facId")).toString();
+	facInfo.factoryName = this->getMetaData(QStringLiteral("facName")).toString();
+	facInfo.voltageLevel = this->getMetaData(QStringLiteral("voltageLevel")).toString();
+	return facInfo;
+}
+
+void ccHObject::setAreaInfo(const AreaLabelInfo& info)
+{
+	if (info.areaId.isEmpty()|| info.areaName.isEmpty())
+	{
+		return;
+	}
+	this->setMetaData(QStringLiteral("areaId"), info.areaId);
+	this->setMetaData(QStringLiteral("areaName"), info.areaName);
+}
+
+AreaLabelInfo ccHObject::getAreaInfo() const
+{
+	AreaLabelInfo info;
+	info.areaId = this->getMetaData(QStringLiteral("areaId")).toString();
+	info.areaName = this->getMetaData(QStringLiteral("areaName")).toString();
+	return info;
+}
+
+void ccHObject::setIntervalInfo(const IntervalLabelInfo& info)
+{
+	if (info.intervalId.isEmpty()|| info.intervalName.isEmpty())
+	{
+		return;
+	}
+	this->setMetaData(QStringLiteral("intervalId"), info.intervalId);
+	this->setMetaData(QStringLiteral("intervalName"), info.intervalName);
+}
+
+IntervalLabelInfo ccHObject::getIntervalInfo() const
+{
+	IntervalLabelInfo info;
+	info.intervalId = this->getMetaData(QStringLiteral("intervalId")).toString();
+	info.intervalName = this->getMetaData(QStringLiteral("intervalName")).toString();
+	return info;
+}
+
+
+void ccHObject::setDeviceInfo(const DeviceLabelInfo& labelInfo)
+{
+	if (labelInfo.deviceId.isEmpty() && labelInfo.deviceName.isEmpty())
+	{
+		ccLog::Warning("[ccPolyline::setLabelInfo] Invalid label info (empty device ID and name)");
+		return;
+	}
+	this->setName(QStringLiteral("%1:%2").arg(labelInfo.deviceId, labelInfo.deviceName));
+	this->setMetaData(QStringLiteral("deviceId"), labelInfo.deviceId);
+	this->setMetaData(QStringLiteral("deviceName"), labelInfo.deviceName);
+}
+
+DeviceLabelInfo ccHObject::getDeviceInfo() const
+{
+	DeviceLabelInfo labelInfo;
+	labelInfo.deviceId = this->getMetaData(QStringLiteral("deviceId")).toString();
+	labelInfo.deviceName = this->getMetaData(QStringLiteral("deviceName")).toString();
+	return labelInfo;
+}
+
+void ccHObject::setPathInfo(const PathLabelInfo& labelInfo)
+{
+	if (labelInfo.pathId.isEmpty())
+	{
+		ccLog::Warning("[ccPolyline::setLabelInfo] Invalid label info (empty path ID)");
+		return;
+	}
+	this->setMetaData(QStringLiteral("pathId"), labelInfo.pathId);
+}
+
+PathLabelInfo ccHObject::getPathInfo() const
+{
+	PathLabelInfo labelInfo;
+	labelInfo.pathId = this->getMetaData(QStringLiteral("pathId")).toString();
+	return labelInfo;
 }

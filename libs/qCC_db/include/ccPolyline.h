@@ -26,11 +26,7 @@
 class ccPointCloud;
 class ccGenericPointCloud;
 
-struct LabelDeviceInfo
-{
-	QString deviceId;
-	QString deviceName;
-};
+
 
 //! Colored polyline
 /** Extends the CCCoreLib::Polyline class
@@ -185,10 +181,7 @@ public:
 	//! Helper to determine if the input cloud acts as vertices of a polyline
 	static bool IsCloudVerticesOfPolyline(ccGenericPointCloud* cloud, ccPolyline** polyline = nullptr);
 
-	void setLabelInfo(const LabelDeviceInfo& labelInfo);
-	LabelDeviceInfo getLabelInfo() const;
-
-
+	
 public: //meta-data keys
 	
 	//! Meta data key: vertical direction (for 2D polylines, contour plots, etc.)

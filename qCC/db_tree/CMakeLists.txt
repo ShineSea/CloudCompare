@@ -6,6 +6,17 @@ set(header_list
    ${CMAKE_CURRENT_SOURCE_DIR}/matrixDisplayDlg.h
    ${CMAKE_CURRENT_SOURCE_DIR}/sfEditDlg.h
    ${CMAKE_CURRENT_SOURCE_DIR}/labelInfoEditDlg.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/baseEditTableView.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/comboboxDelegate.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/factoryEditDlg.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/factoryEditTableView.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/factoryInfoTableModel.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/areaEditDlg.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/areaEditTableView.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/areaInfoTableModel.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/intervalEditDlg.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/intervalEditTableView.h
+   ${CMAKE_CURRENT_SOURCE_DIR}/intervalInfoTableModel.h
    PARENT_SCOPE
 )
 
@@ -16,5 +27,16 @@ set(source_list
    ${CMAKE_CURRENT_SOURCE_DIR}/matrixDisplayDlg.cpp
    ${CMAKE_CURRENT_SOURCE_DIR}/sfEditDlg.cpp
    ${CMAKE_CURRENT_SOURCE_DIR}/labelInfoEditDlg.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/comboboxDelegate.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/baseEditTableView.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/factoryEditDlg.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/factoryEditTableView.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/factoryInfoTableModel.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/areaEditDlg.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/areaEditTableView.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/areaInfoTableModel.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/intervalEditDlg.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/intervalEditTableView.cpp
+   ${CMAKE_CURRENT_SOURCE_DIR}/intervalInfoTableModel.cpp
    PARENT_SCOPE
 )

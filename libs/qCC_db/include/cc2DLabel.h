@@ -30,9 +30,7 @@
 class ccGenericPointCloud;
 class ccGenericMesh;
 
-struct LabelPathInfo {
-	QString pathId;
-};
+
 //! 2D label (typically attached to points)
 class QCC_DB_LIB_API cc2DLabel : public ccHObject, public ccInteractor
 {
@@ -208,9 +206,6 @@ public:
 						const ccGLCameraParameters& camera,
 						int& nearestPointIndex,
 						double& nearestSquareDist) const;
-
-	void setLabelInfo(const LabelPathInfo& labelInfo);
-	LabelPathInfo getLabelInfo() const;
 
 protected:
 

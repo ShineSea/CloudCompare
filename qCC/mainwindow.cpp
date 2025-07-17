@@ -12258,7 +12258,7 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 			CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
 			if (cloud)
 			{
-				LabelDeviceInfo labelInfo = polyline->getLabelInfo();
+				DeviceLabelInfo labelInfo = polyline->getDeviceInfo();
 				xlsxW.write(row, Column_DeviceId, labelInfo.deviceId);
 				xlsxW.write(row, Column_IntervalName, intervalName);
 				xlsxW.write(row, Column_DeviceName, labelInfo.deviceName);
@@ -12325,7 +12325,7 @@ bool MainWindow::exportPathInfo(const QString& exportFileName)
 			CCVector3 P = PP.getPointPosition();
 			if (label->isVisible() && label->size() == 1)
 			{
-				stream << label->getLabelInfo().pathId<<' '
+				stream << label->getPathInfo().pathId<<' '
 					<< static_cast<double>(P.x) / scale - shift.x << ' '
 					<< static_cast<double>(P.y) / scale - shift.y << ' '
 					<< static_cast<double>(P.z) / scale - shift.z << endl;

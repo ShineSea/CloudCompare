@@ -15,15 +15,15 @@ labelInfoEditDlg::~labelInfoEditDlg()
 	delete m_ui;
 }
 
-void labelInfoEditDlg::setLabelInfo(const LabelDeviceInfo& labelInfo)
+void labelInfoEditDlg::setLabelInfo(const DeviceLabelInfo& labelInfo)
 {
 	m_ui->lineEditDeviceId->setText(labelInfo.deviceId);
 	m_ui->lineEditDeviceName->setText(labelInfo.deviceName);
 }
 
-LabelDeviceInfo labelInfoEditDlg::getLabelInfo() const
+DeviceLabelInfo labelInfoEditDlg::getLabelInfo() const
 {
-	LabelDeviceInfo labelInfo;
+	DeviceLabelInfo labelInfo;
 	labelInfo.deviceId = m_ui->lineEditDeviceId->text();
 	labelInfo.deviceName = m_ui->lineEditDeviceName->text();
 	return labelInfo;

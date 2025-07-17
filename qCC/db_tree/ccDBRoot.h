@@ -200,7 +200,10 @@ private:
 	void sortChildrenType();
 	void selectByTypeAndName();
 	void exportImages();
-	void editLabelInfo();
+	void editDevicelInfo();
+	void editFactoryInfo();
+	void editAreaInfo();
+	void editIntervalInfo();
 
 	inline void toggleSelectedEntities()			{ toggleSelectedEntitiesProperty(TG_ENABLE); }
 	inline void toggleSelectedEntitiesVisibility()	{ toggleSelectedEntitiesProperty(TG_VISIBLE); }
@@ -216,6 +219,7 @@ private:
 	void enableBubbleViewMode();
 	void editLabelScalarValue();
 
+	ccHObject* getLabelGroup();
 Q_SIGNALS:
 	void selectionChanged();
 	void dbIsEmpty();
@@ -304,7 +308,13 @@ protected:
 	QAction* m_editLabelScalarValue;
 
 	//! Context menu action: edit labelInfo
-	QAction* m_editLabelInfo;
+	QAction* m_editDeviceInfo;
+
+	QAction* m_editFactoryInfo;
+
+	QAction* m_editAreaInfo;
+
+	QAction* m_editIntervalInfo;
 
 	//! Last context menu pos
 	QPoint m_contextMenuPos;

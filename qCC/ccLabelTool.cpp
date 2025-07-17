@@ -658,7 +658,8 @@ void ccLabelTool::exportLine()
 	
 	m_poly3D->setUniqueID(ccObject::GetNextUniqueID());
 	m_poly3DVertices->setUniqueID(ccObject::GetNextUniqueID());
-	m_poly3D->setLabelInfo(LabelDeviceInfo{id,deviceName});
+	m_poly3D->setLabelInfoType(LabelInfoType::Device);
+	m_poly3D->setDeviceInfo(DeviceLabelInfo{id,deviceName});
 
 	m_poly3D->enableTempColor(false);
 	m_poly3D->setDisplay(m_associatedWin); //just in case
@@ -741,7 +742,7 @@ int ccLabelTool::getNextDeviceId()
 	{
 		ccHObject* child=children.back();
 		children.pop_back();
-		LabelDeviceInfo labelInfo=ccHObjectCaster::ToPolyline(child)->getLabelInfo();
+		DeviceLabelInfo labelInfo=child->getDeviceInfo();
 		if(!labelInfo.deviceId.isEmpty())
 		{
 			int tmpId=labelInfo.deviceId.toInt();
