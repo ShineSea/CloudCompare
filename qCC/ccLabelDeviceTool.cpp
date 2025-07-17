@@ -39,6 +39,8 @@
 
 #include "db_tree/ccDBRoot.h"
 
+#include <QUuid>
+
 #ifdef CC_CORE_LIB_USES_TBB
 #include <tbb/parallel_for.h>
 #endif
@@ -48,8 +50,10 @@
 #include <omp.h>
 #endif
 
-static const char s_labelContainerName[] = "柜面标注";
 
+QString ccLabelDeviceTool::m_lastFactoryId;
+QString ccLabelDeviceTool::m_lastAreaId;
+QString ccLabelDeviceTool::m_lastIntervalId;
 ccLabelDeviceTool::SegmentGLParams::SegmentGLParams(ccGenericGLDisplay *display, int x, int y)
 {
 	if (display)
@@ -102,6 +106,18 @@ ccLabelDeviceTool::ccLabelDeviceTool(ccPickingHub *pickingHub, QWidget *parent)
 
 	m_ui->validButton->setEnabled(false);
 	m_ui->tableDeviceInfo->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+	connect(m_ui->comboBoxFactory, static_cast<void (QComboBox::*)(int)>(& QComboBox::currentIndexChanged), this, [this](int index) {
+		m_lastFactoryId = m_ui->comboBoxFactory->itemData(index).value<FactoryLabelInfo>().factoryId;
+		updateAreaComboBox();
+	});
+	connect(m_ui->comboBoxArea, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
+		m_lastAreaId = m_ui->comboBoxArea->itemData(index).value<AreaLabelInfo>().areaId;
+		updateIntervalComboBox();
+		});
+	connect(m_ui->comboBoxInterval, static_cast<void (QComboBox::*)(int)>(&QComboBox::currentIndexChanged), this, [this](int index) {
+		m_lastIntervalId = m_ui->comboBoxInterval->itemData(index).value<IntervalLabelInfo>().intervalId;
+		});
 }
 
 ccLabelDeviceTool::~ccLabelDeviceTool()
@@ -121,7 +137,6 @@ ccLabelDeviceTool::~ccLabelDeviceTool()
 	m_ui = nullptr;
 
 	m_associatedEntity = nullptr;
-	m_labelContainer = nullptr;
 }
 
 void ccLabelDeviceTool::onShortcutTriggered(int key)
@@ -175,12 +190,6 @@ bool ccLabelDeviceTool::linkWith(ccGLWindowInterface *win)
 void ccLabelDeviceTool::linkWithEntity(ccHObject* entity)
 {
 	m_associatedEntity = entity;
-
-	if (m_associatedEntity)
-	{
-		//find default container
-		m_labelContainer = getLabelGroup(m_associatedEntity);
-	}
 }
 
 bool ccLabelDeviceTool::start()
@@ -188,13 +197,14 @@ bool ccLabelDeviceTool::start()
 	assert(m_polyTip);
 	assert(!m_poly3D);
 
+	updateLabelInfos();
+	updateFactoryComboBox();
+
 	if (!m_associatedWin)
 	{
 		ccLog::Warning("[Trace Polyline Tool] No associated window!");
 		return false;
 	}
-
-	updateIntervalGroupMap();
 
 	m_associatedWin->setUnclosable(true);
 	m_associatedWin->addToOwnDB(m_polyTip);
@@ -236,7 +246,6 @@ void ccLabelDeviceTool::stop(bool accepted)
 
 
 	m_associatedEntity = nullptr;
-	m_labelContainer = nullptr;
 	ccOverlayDialog::stop(accepted);
 }
 
@@ -345,15 +354,6 @@ void ccLabelDeviceTool::onItemPicked(const PickedItem &pi)
 	}
 	if (pi.entity != m_associatedEntity)
 		return;
-
-	if (!m_labelContainer)
-	{
-		m_labelContainer = new ccHObject(s_labelContainerName);
-		m_associatedEntity->addChild(m_labelContainer);
-		m_labelContainer->setDisplay(m_associatedWin);
-		MainWindow::TheInstance()->addToDB(m_labelContainer, false, true, false, false);
-	}
-	assert(m_labelContainer);
 	// if the 3D polyline doesn't exist yet, we create it
 	if (!m_poly3D || !m_poly3DVertices)
 	{
@@ -496,10 +496,6 @@ void ccLabelDeviceTool::exportLine()
 	{
 		return;
 	}
-	QString intervalName = m_ui->lineEditIntervalName->text();
-	if (intervalName.isEmpty())
-		intervalName = QStringLiteral( "未命名间隔");
-
 	if (m_associatedWin)
 	{
 		m_associatedWin->removeFromOwnDB(m_poly3D);
@@ -513,17 +509,10 @@ void ccLabelDeviceTool::exportLine()
 	m_poly3D->setDisplay(m_associatedWin); // just in case
 	if (MainWindow::TheInstance())
 	{
-		ccHObject *intervalGroup = nullptr;
-		if (m_intervalNameToGroupID.contains(intervalName))
-		{
-			intervalGroup = m_associatedEntity->find(m_intervalNameToGroupID[intervalName]);
-		}
+		ccHObject* intervalGroup = m_intervalMap[m_lastIntervalId];
 		if (!intervalGroup)
 		{
-			intervalGroup = new ccHObject(intervalName);
-			getLabelGroup(m_associatedEntity)->addChild(intervalGroup);
-			m_intervalNameToGroupID[intervalName] = intervalGroup->getUniqueID();
-			MainWindow::TheInstance()->addToDB(intervalGroup);
+			return;
 		}
 		for (int i = 0; i < m_polyDevices.size(); ++i)
 		{
@@ -583,69 +572,157 @@ void ccLabelDeviceTool::onWidthSizeChanged(int width)
 	}
 }
 
-int ccLabelDeviceTool::getNextDeviceId()
+QString ccLabelDeviceTool::getNextDeviceId()
 {
-	auto labelGroup = getLabelGroup(m_associatedEntity);
-	if (!labelGroup)
-		return 1;
-	ccHObject::Container children;
-	labelGroup->filterChildren(children, true, CC_TYPES::POLY_LINE);
+	//auto labelGroup = getLabelGroup(m_associatedEntity);
+	//if (!labelGroup)
+	//	return 1;
+	//ccHObject::Container children;
+	//labelGroup->filterChildren(children, true, CC_TYPES::POLY_LINE);
 
-	int maxId = 0;
-	while (!children.empty())
-	{
-		ccHObject *child = children.back();
-		children.pop_back();
-		DeviceLabelInfo labelInfo = child->getDeviceInfo();
-		if (!labelInfo.deviceId.isEmpty())
-		{
-			maxId = std::max(maxId, labelInfo.deviceId.toInt());
-		}
-	}
+	//int maxId = 0;
+	//while (!children.empty())
+	//{
+	//	ccHObject *child = children.back();
+	//	children.pop_back();
+	//	DeviceLabelInfo labelInfo = child->getDeviceInfo();
+	//	if (!labelInfo.deviceId.isEmpty())
+	//	{
+	//		maxId = std::max(maxId, labelInfo.deviceId.toInt());
+	//	}
+	//}
 
-	for (int i = 0; i < m_ui->tableDeviceInfo->rowCount(); i++)
-	{
-		auto item = m_ui->tableDeviceInfo->item(i, 0);
-		if (!item)
-			continue; // skip empty rows
-		QString deviceId = item->text();
-		if (!deviceId.isEmpty())
-		{
-			maxId = std::max(maxId, deviceId.toInt());
-		}
-	}
-	return maxId + 1;
+	//for (int i = 0; i < m_ui->tableDeviceInfo->rowCount(); i++)
+	//{
+	//	auto item = m_ui->tableDeviceInfo->item(i, 0);
+	//	if (!item)
+	//		continue; // skip empty rows
+	//	QString deviceId = item->text();
+	//	if (!deviceId.isEmpty())
+	//	{
+	//		maxId = std::max(maxId, deviceId.toInt());
+	//	}
+	//}
+	//return maxId + 1;
+	return QUuid::createUuid().toString().remove("{").remove("}").remove('-');
+
 }
 
-ccHObject *ccLabelDeviceTool::getLabelGroup(ccHObject* entity)
+void ccLabelDeviceTool::updateLabelInfos()
 {
-	ccHObject::Container groups;
-	entity->filterChildren(groups, true, CC_TYPES::HIERARCHY_OBJECT);
-
-	for (ccHObject::Container::const_iterator it = groups.begin(); it != groups.end(); ++it)
+	m_factoryInfoList.clear();
+	m_areaInfoMap.clear();
+	m_intervalInfoMap.clear();
+	m_intervalMap.clear();
+	MainWindow* mainWindow = MainWindow::TheInstance();
+	ccDBRoot* db = mainWindow->db();
+	ccHObject* labelGroup = db->getLabelGroup();
+	ccHObject::Container labelChildren;
+	labelGroup->filterChildren(labelChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+	while (!labelChildren.empty())
 	{
-		if ((*it)->getName() == s_labelContainerName)
+		ccHObject* child = labelChildren.back();
+		labelChildren.pop_back();
+		if (child->getLabelInfoType() != LabelInfoType::Factory)
 		{
-			return *it;
+			continue;
+		}
+		FactoryLabelInfo factoryInfo = child->getFactoryInfo();
+		m_factoryInfoList.append(factoryInfo);
+		ccHObject::Container factoryChildren;
+		child->filterChildren(factoryChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+		while (!factoryChildren.empty())
+		{
+			ccHObject* child = factoryChildren.back();
+			factoryChildren.pop_back();
+			if (child->getLabelInfoType() != LabelInfoType::Area)
+			{
+				continue;
+			}
+			AreaLabelInfo areaInfo = child->getAreaInfo();
+			m_areaInfoMap[factoryInfo.factoryId].append(areaInfo);
+			ccHObject::Container areaChildren;
+			child->filterChildren(areaChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+			while (!areaChildren.empty())
+			{
+				ccHObject* child = areaChildren.back();
+				areaChildren.pop_back();
+				if (child->getLabelInfoType() != LabelInfoType::Interval)
+				{
+					continue;
+				}
+				IntervalLabelInfo intervalInfo = child->getIntervalInfo();
+				m_intervalInfoMap[areaInfo.areaId].append(intervalInfo);
+				m_intervalMap.insert(intervalInfo.intervalId, child);
+			}
+
 		}
 	}
-	return nullptr;
 }
 
-void ccLabelDeviceTool::updateIntervalGroupMap()
+void ccLabelDeviceTool::updateFactoryComboBox()
 {
-	m_intervalNameToGroupID.clear();
-	auto labelGroup = getLabelGroup(m_associatedEntity);
-	if (!labelGroup)
-		return;
-	ccHObject::Container children;
-	labelGroup->filterChildren(children, false, CC_TYPES::HIERARCHY_OBJECT);
-	while (!children.empty())
+	m_ui->comboBoxFactory->blockSignals(true);
+	m_ui->comboBoxFactory->clear();
+	for (const auto& info : m_factoryInfoList)
+		m_ui->comboBoxFactory->addItem(info.factoryName, QVariant::fromValue(info));
+	if (!m_lastFactoryId.isEmpty())
 	{
-		ccHObject *child = children.back();
-		children.pop_back();
-		m_intervalNameToGroupID[child->getName()] = child->getUniqueID();
+		for (int i = 0; i < m_ui->comboBoxFactory->count(); ++i)
+		{
+			if (m_ui->comboBoxFactory->itemData(i).value<FactoryLabelInfo>().factoryId == m_lastFactoryId)
+			{
+				m_ui->comboBoxFactory->setCurrentIndex(i);
+				break;
+			}
+		}
 	}
+	m_lastFactoryId = m_ui->comboBoxFactory->currentData().value<FactoryLabelInfo>().factoryId;
+	m_ui->comboBoxFactory->blockSignals(false);
+	updateAreaComboBox();
+}
+
+void ccLabelDeviceTool::updateAreaComboBox()
+{
+	m_ui->comboBoxArea->blockSignals(true);
+	m_ui->comboBoxArea->clear();
+	for (const auto& info : m_areaInfoMap[m_lastFactoryId])
+		m_ui->comboBoxArea->addItem(info.areaName, QVariant::fromValue(info));
+	if (!m_lastAreaId.isEmpty())
+	{
+		for (int i = 0; i < m_ui->comboBoxArea->count(); ++i)
+		{
+			if (m_ui->comboBoxArea->itemData(i).value<AreaLabelInfo>().areaId == m_lastAreaId)
+			{
+				m_ui->comboBoxArea->setCurrentIndex(i);
+				break;
+			}
+		}
+	}
+	m_lastAreaId = m_ui->comboBoxArea->currentData().value<AreaLabelInfo>().areaId;
+	m_ui->comboBoxArea->blockSignals(false);
+	updateIntervalComboBox();
+}
+
+void ccLabelDeviceTool::updateIntervalComboBox()
+{
+	m_ui->comboBoxInterval->blockSignals(true);
+	m_ui->comboBoxInterval->clear();
+	for (const auto& info : m_intervalInfoMap[m_lastAreaId])
+		m_ui->comboBoxInterval->addItem(info.intervalName, QVariant::fromValue(info));
+	if (!m_lastIntervalId.isEmpty())
+	{
+		for (int i = 0; i < m_ui->comboBoxInterval->count(); ++i)
+		{
+			if (m_ui->comboBoxInterval->itemData(i).value<IntervalLabelInfo>().intervalId == m_lastIntervalId)
+			{
+				m_ui->comboBoxInterval->setCurrentIndex(i);
+				break;
+			}
+		}
+	}
+	m_lastIntervalId = m_ui->comboBoxInterval->currentData().value<IntervalLabelInfo> ().intervalId;
+	m_ui->comboBoxInterval->blockSignals(false);
 }
 
 std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
@@ -845,12 +922,11 @@ void ccLabelDeviceTool::clearPolyDevices()
 
 void ccLabelDeviceTool::updateTableDeviceInfo()
 {
-	int nextDeviceId = getNextDeviceId();
 	int bIndex = m_ui->tableDeviceInfo->rowCount();
 	m_ui->tableDeviceInfo->setRowCount(m_poly3DVertices->size() - 3);
 	for (int i = bIndex; i < m_ui->tableDeviceInfo->rowCount(); ++i)
 	{
-		m_ui->tableDeviceInfo->setItem(i, 0, new QTableWidgetItem(QString::number(nextDeviceId++)));
+		m_ui->tableDeviceInfo->setItem(i, 0, new QTableWidgetItem(getNextDeviceId()));
 		m_ui->tableDeviceInfo->setItem(i, 1, new QTableWidgetItem(QStringLiteral("")));
 	}
 }

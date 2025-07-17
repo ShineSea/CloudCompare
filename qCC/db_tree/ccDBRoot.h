@@ -177,6 +177,8 @@ public:
 	**/
 	void selectEntities(const ccHObject::Container& entities, bool incremental = false);
 
+	ccHObject* getLabelGroup();
+
 private:
 	//! Entity property that can be toggled
 	enum TOGGLE_PROPERTY {	TG_ENABLE,
@@ -219,7 +221,7 @@ private:
 	void enableBubbleViewMode();
 	void editLabelScalarValue();
 
-	ccHObject* getLabelGroup();
+	
 Q_SIGNALS:
 	void selectionChanged();
 	void dbIsEmpty();

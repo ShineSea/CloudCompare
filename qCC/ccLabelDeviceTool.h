@@ -27,6 +27,8 @@
 //system
 #include <vector>
 
+#include "ccHObject.h"
+
 class ccPolyline;
 class ccPointCloud;
 class ccGenericPointCloud;
@@ -55,8 +57,6 @@ public:
 
 	virtual bool start() override;
 	virtual void stop(bool accepted) override;
-
-	static ccHObject* getLabelGroup(ccHObject* entity);
 
 protected:
 
@@ -102,9 +102,16 @@ protected:
 	//! Restarts the edition mode
 	void restart(bool reset);
 
-	void updateIntervalGroupMap();
+	QString getNextDeviceId();
 
-	int getNextDeviceId();
+	void updateLabelInfos();
+
+	void updateFactoryComboBox();
+
+	void updateAreaComboBox();
+
+	void updateIntervalComboBox();
+
 
 	//! Viewport parameters (used for picking)
 	struct SegmentGLParams
@@ -120,9 +127,6 @@ protected:
 	//! 2D polyline vertices
 	ccPointCloud* m_polyTipVertices;
 
-	//!间隔groupId
-	QMap<QString, int> m_intervalNameToGroupID;
-
 	//! 3D polyline
 	ccPolyline* m_poly3D;
 	//! 3D polyline vertices
@@ -137,9 +141,17 @@ protected:
 	ccPickingHub* m_pickingHub;
 
 	ccHObject* m_associatedEntity;
-	ccHObject* m_labelContainer;
 
 	Ui::LabelDeviceDlg* m_ui;
 
-	
+	QMap<QString, ccHObject*> m_intervalMap;
+	QList<FactoryLabelInfo> m_factoryInfoList;
+	QMap<QString, QList<AreaLabelInfo>> m_areaInfoMap;
+	QMap<QString, QList<IntervalLabelInfo>> m_intervalInfoMap;
+
+	static QString m_lastFactoryId;
+	static QString m_lastAreaId;
+	static QString m_lastIntervalId;
+
+
 };

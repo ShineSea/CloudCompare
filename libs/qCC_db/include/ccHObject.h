@@ -62,7 +62,11 @@ struct DeviceLabelInfo
 struct PathLabelInfo {
 	QString pathId;
 };
-
+Q_DECLARE_METATYPE(FactoryLabelInfo)
+Q_DECLARE_METATYPE(AreaLabelInfo)
+Q_DECLARE_METATYPE(IntervalLabelInfo)
+Q_DECLARE_METATYPE(DeviceLabelInfo)
+Q_DECLARE_METATYPE(PathLabelInfo)
 //! Hierarchical CloudCompare Object
 class QCC_DB_LIB_API ccHObject : public ccObject, public ccDrawableObject
 {

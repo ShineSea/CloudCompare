@@ -2473,7 +2473,7 @@ ccHObject* ccDBRoot::getLabelGroup()
 {
 	QString labelGroupName = "标注";
 	ccHObject::Container children;
-	m_treeRoot->filterChildren(children,false,CC_TYPES::HIERARCHY_OBJECT);
+	m_treeRoot->filterChildren(children,true,CC_TYPES::HIERARCHY_OBJECT);
 	while(!children.empty())
 	{
 		ccHObject *child = children.back();

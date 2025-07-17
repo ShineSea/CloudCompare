@@ -12220,72 +12220,73 @@ void MainWindow::doActionSaveLabelInfo()
 
 bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 {
-	ccHObject* entity = m_selectedEntities.front();
-	auto labelGroup = ccLabelDeviceTool::getLabelGroup(entity);
-	if (!labelGroup)
-	{
-		ccConsole::Warning("无柜面标注信息");
-		return true;
-	}
-	QXlsx::Document xlsxW;
-	enum Column {
-		Column_DeviceId = 1,
-		Column_FactoryName,
-		Column_VoltageLevel,
-		Column_AreaName,
-		Column_IntervalName,
-		Column_DeviceName,
-	};
-	QMap<Column, QString> columnNameMap = {
-		{Column_DeviceId,QStringLiteral("编号")},
-		{Column_FactoryName,QStringLiteral("变电站名称")},
-		{Column_VoltageLevel,QStringLiteral("电压等级")},
-		{Column_AreaName,QStringLiteral("区域名称")},
-		{Column_IntervalName,QStringLiteral("间隔名称")},
-		{Column_DeviceName,QStringLiteral("设备名称")},
-	};
-	ccHObject::Container intervalGroups;
-	labelGroup->filterChildren(intervalGroups, true, CC_TYPES::OBJECT);
-	int row = 2;
-	for (auto intervalGroup : intervalGroups)
-	{
-		QString intervalName = intervalGroup->getName();
-		ccHObject::Container deviceObjects;
-		intervalGroup->filterChildren(deviceObjects, true, CC_TYPES::POLY_LINE);
-		for (auto deviceObject : deviceObjects)
-		{
-			ccPolyline* polyline = ccHObjectCaster::ToPolyline(deviceObject);
-			CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
-			if (cloud)
-			{
-				DeviceLabelInfo labelInfo = polyline->getDeviceInfo();
-				xlsxW.write(row, Column_DeviceId, labelInfo.deviceId);
-				xlsxW.write(row, Column_IntervalName, intervalName);
-				xlsxW.write(row, Column_DeviceName, labelInfo.deviceName);
-				std::vector<int> pointIndexs = { 0,1,2,4 };
-				for (int i = 0; i < 4; ++i)
-				{
-					const CCVector3* point = cloud->getPoint(pointIndexs[i]);
-					xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
-					xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
-					xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
-				}
-				row++;
-			}
-		}
-	}
-	//添加列名
-	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
-	{
-		xlsxW.write(1, it.key(), it.value());
-	}
-	for (int i = 0; i < 4; ++i)
-	{
-		xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
-		xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
-		xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
-	}
-	return xlsxW.saveAs(exportFileName);
+	return false;
+	//ccHObject* entity = m_selectedEntities.front();
+	//auto labelGroup = ccLabelDeviceTool::getLabelGroup(entity);
+	//if (!labelGroup)
+	//{
+	//	ccConsole::Warning("无柜面标注信息");
+	//	return true;
+	//}
+	//QXlsx::Document xlsxW;
+	//enum Column {
+	//	Column_DeviceId = 1,
+	//	Column_FactoryName,
+	//	Column_VoltageLevel,
+	//	Column_AreaName,
+	//	Column_IntervalName,
+	//	Column_DeviceName,
+	//};
+	//QMap<Column, QString> columnNameMap = {
+	//	{Column_DeviceId,QStringLiteral("编号")},
+	//	{Column_FactoryName,QStringLiteral("变电站名称")},
+	//	{Column_VoltageLevel,QStringLiteral("电压等级")},
+	//	{Column_AreaName,QStringLiteral("区域名称")},
+	//	{Column_IntervalName,QStringLiteral("间隔名称")},
+	//	{Column_DeviceName,QStringLiteral("设备名称")},
+	//};
+	//ccHObject::Container intervalGroups;
+	//labelGroup->filterChildren(intervalGroups, true, CC_TYPES::OBJECT);
+	//int row = 2;
+	//for (auto intervalGroup : intervalGroups)
+	//{
+	//	QString intervalName = intervalGroup->getName();
+	//	ccHObject::Container deviceObjects;
+	//	intervalGroup->filterChildren(deviceObjects, true, CC_TYPES::POLY_LINE);
+	//	for (auto deviceObject : deviceObjects)
+	//	{
+	//		ccPolyline* polyline = ccHObjectCaster::ToPolyline(deviceObject);
+	//		CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
+	//		if (cloud)
+	//		{
+	//			DeviceLabelInfo labelInfo = polyline->getDeviceInfo();
+	//			xlsxW.write(row, Column_DeviceId, labelInfo.deviceId);
+	//			xlsxW.write(row, Column_IntervalName, intervalName);
+	//			xlsxW.write(row, Column_DeviceName, labelInfo.deviceName);
+	//			std::vector<int> pointIndexs = { 0,1,2,4 };
+	//			for (int i = 0; i < 4; ++i)
+	//			{
+	//				const CCVector3* point = cloud->getPoint(pointIndexs[i]);
+	//				xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
+	//				xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
+	//				xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
+	//			}
+	//			row++;
+	//		}
+	//	}
+	//}
+	////添加列名
+	//for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
+	//{
+	//	xlsxW.write(1, it.key(), it.value());
+	//}
+	//for (int i = 0; i < 4; ++i)
+	//{
+	//	xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
+	//	xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
+	//	xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
+	//}
+	//return xlsxW.saveAs(exportFileName);
 }
 
 bool MainWindow::exportPathInfo(const QString& exportFileName)
