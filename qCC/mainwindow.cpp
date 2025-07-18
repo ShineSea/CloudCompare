@@ -12324,45 +12324,6 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 		xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
 	}
 	return xlsxW.saveAs(exportFileName);
-	//ccHObject* entity = m_selectedEntities.front();
-	//auto labelGroup = ccLabelDeviceTool::getLabelGroup(entity);
-	//if (!labelGroup)
-	//{
-	//	ccConsole::Warning("无柜面标注信息");
-	//	return true;
-	//}
-	//QXlsx::Document xlsxW;
-	
-	//ccHObject::Container intervalGroups;
-	//labelGroup->filterChildren(intervalGroups, true, CC_TYPES::OBJECT);
-	//int row = 2;
-	//for (auto intervalGroup : intervalGroups)
-	//{
-	//	QString intervalName = intervalGroup->getName();
-	//	ccHObject::Container deviceObjects;
-	//	intervalGroup->filterChildren(deviceObjects, true, CC_TYPES::POLY_LINE);
-	//	for (auto deviceObject : deviceObjects)
-	//	{
-	//		ccPolyline* polyline = ccHObjectCaster::ToPolyline(deviceObject);
-	//		CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
-	//		if (cloud)
-	//		{
-	//			DeviceLabelInfo labelInfo = polyline->getDeviceInfo();
-	//			
-	//			std::vector<int> pointIndexs = { 0,1,2,4 };
-	//			for (int i = 0; i < 4; ++i)
-	//			{
-	//				const CCVector3* point = cloud->getPoint(pointIndexs[i]);
-	//				xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
-	//				xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
-	//				xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
-	//			}
-	//			row++;
-	//		}
-	//	}
-	//}
-
-	//return xlsxW.saveAs(exportFileName);
 }
 
 bool MainWindow::exportPointTable(const QString& exportFileName)
@@ -12388,7 +12349,7 @@ bool MainWindow::exportPointTable(const QString& exportFileName)
 	QMap<Column, QString> columnNameMap = {
 		{Column_StationName,"station_name"},
 		{Column_StationId,"station_code"},
-		{Column_AreaId,"area_id "},
+		{Column_AreaId,"area_id"},
 		{Column_AreaName,"area_name"},
 		{Column_BayId,"bay_id"},
 		{Column_BayName,"bay_name"},
@@ -12476,49 +12437,48 @@ bool MainWindow::exportPointTable(const QString& exportFileName)
 
 bool MainWindow::exportPathInfo(const QString& exportFileName)
 {
-//	ccHObject* entity = m_selectedEntities.front();
-//	auto labelPathGroup = ccLabelPathDlg::getLabelPathGroup(entity);
-//	if (!labelPathGroup)
-//	{
-//		ccConsole::Warning("无路径标注信息");
-//		return true;
-//	}
-//	QFile fp(exportFileName);
-//	if (!fp.open(QFile::WriteOnly))
-//	{
-//		return false;
-//}
-//	CCVector3d shift;
-//	double scale = 1.0;
-//	ccGenericPointCloud* asCloud = ccHObjectCaster::ToGenericPointCloud(entity);
-//	if (asCloud)
-//	{
-//		shift = asCloud->getGlobalShift();
-//		scale = asCloud->getGlobalScale();
-//	}
-//
-//	QTextStream stream(&fp);
-//	stream.setRealNumberPrecision(12);
-//	ccHObject::Container labels;
-//	unsigned count = labelPathGroup->filterChildren(labels, false, CC_TYPES::LABEL_2D);
-//
-//	for (unsigned i = 0; i < count; ++i)
-//	{
-//		if (labels[i]->isA(CC_TYPES::LABEL_2D)) //Warning: cc2DViewportLabel is also a kind of 'CC_TYPES::LABEL_2D'!
-//		{
-//			cc2DLabel* label = static_cast<cc2DLabel*>(labels[i]);
-//			const cc2DLabel::PickedPoint& PP = label->getPickedPoint(0);
-//			CCVector3 P = PP.getPointPosition();
-//			if (label->isVisible() && label->size() == 1)
-//			{
-//				stream << label->getPathInfo().pathId<<' '
-//					<< static_cast<double>(P.x) / scale - shift.x << ' '
-//					<< static_cast<double>(P.y) / scale - shift.y << ' '
-//					<< static_cast<double>(P.z) / scale - shift.z << endl;
-//			}
-//		}
-//	}
-//	fp.close();
+	auto labelPathGroup = m_ccRoot->getLabelPathGroup();
+	if (!labelPathGroup)
+	{
+		ccConsole::Warning("无路径标注信息");
+		return true;
+	}
+	QFile fp(exportFileName);
+	if (!fp.open(QFile::WriteOnly))
+	{
+		return false;
+}
+	CCVector3d shift;
+	double scale = 1.0;
+	//ccGenericPointCloud* asCloud = ccHObjectCaster::ToGenericPointCloud(entity);
+	//if (asCloud)
+	//{
+	//	shift = asCloud->getGlobalShift();
+	//	scale = asCloud->getGlobalScale();
+	//}
+
+	QTextStream stream(&fp);
+	stream.setRealNumberPrecision(12);
+	ccHObject::Container labels;
+	unsigned count = labelPathGroup->filterChildren(labels, false, CC_TYPES::LABEL_2D);
+
+	for (unsigned i = 0; i < count; ++i)
+	{
+		if (labels[i]->isA(CC_TYPES::LABEL_2D)) //Warning: cc2DViewportLabel is also a kind of 'CC_TYPES::LABEL_2D'!
+		{
+			cc2DLabel* label = static_cast<cc2DLabel*>(labels[i]);
+			const cc2DLabel::PickedPoint& PP = label->getPickedPoint(0);
+			CCVector3 P = PP.getPointPosition();
+			if (label->isVisible() && label->size() == 1)
+			{
+				stream << label->getPathInfo().pathId<<' '
+					<< static_cast<double>(P.x) / scale - shift.x << ' '
+					<< static_cast<double>(P.y) / scale - shift.y << ' '
+					<< static_cast<double>(P.z) / scale - shift.z << endl;
+			}
+		}
+	}
+	fp.close();
 	return true;
 }
 

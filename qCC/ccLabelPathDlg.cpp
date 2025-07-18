@@ -104,7 +104,7 @@ void ccLabelPathDlg::linkWithEntity(ccHObject* entity)
 	if (m_associatedEntity)
 	{
 		//find default container
-		m_orderedLabelsContainer = getLabelPathGroup(m_associatedEntity);
+		m_orderedLabelsContainer = MainWindow::TheInstance()->db()->getLabelPathGroup();
 
 		std::vector<cc2DLabel*> previousPickedPoints;
 		unsigned count = getPickedPoints(previousPickedPoints);
@@ -363,14 +363,14 @@ void ccLabelPathDlg::processPickedPoint(const PickedItem& picked)
 		                        static_cast<float>(picked.clickPoint.y() + 20) / size.height() );
 	}
 
-	//add default container if necessary
-	if (!m_orderedLabelsContainer)
-	{
-		m_orderedLabelsContainer = new ccHObject(s_pickedPointContainerName);
-		m_associatedEntity->addChild(m_orderedLabelsContainer);
-		m_orderedLabelsContainer->setDisplay(display);
-		MainWindow::TheInstance()->addToDB(m_orderedLabelsContainer, false, true, false, false);
-	}
+	////add default container if necessary
+	//if (!m_orderedLabelsContainer)
+	//{
+	//	m_orderedLabelsContainer = new ccHObject(s_pickedPointContainerName);
+	//	m_associatedEntity->addChild(m_orderedLabelsContainer);
+	//	m_orderedLabelsContainer->setDisplay(display);
+	//	MainWindow::TheInstance()->addToDB(m_orderedLabelsContainer, false, true, false, false);
+	//}
 	assert(m_orderedLabelsContainer);
 	m_orderedLabelsContainer->addChild(newLabel);
 	MainWindow::TheInstance()->addToDB(newLabel, false, true, false, false);

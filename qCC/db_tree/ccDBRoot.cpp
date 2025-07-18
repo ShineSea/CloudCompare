@@ -1180,6 +1180,22 @@ void ccDBRoot::selectEntities(const ccHObject::Container& entities, bool increme
 	selectionModel->select(newSelection,incremental ? QItemSelectionModel::Select : QItemSelectionModel::ClearAndSelect);
 }
 
+ccHObject* ccDBRoot::getGroup(const QString& groupName)
+{
+	ccHObject::Container children;
+	m_treeRoot->filterChildren(children, true, CC_TYPES::HIERARCHY_OBJECT);
+	while (!children.empty())
+	{
+		ccHObject* child = children.back();
+		children.pop_back();
+		if (child->getName() == groupName)
+		{
+			return child;
+		}
+	}
+	return nullptr;
+}
+
 ccHObject* ccDBRoot::find(int uniqueID) const
 {
 	return m_treeRoot->find(uniqueID);
@@ -2472,19 +2488,24 @@ void ccDBRoot::editDevicelInfo()
 ccHObject* ccDBRoot::getLabelGroup()
 {
 	QString labelGroupName = "标注";
-	ccHObject::Container children;
-	m_treeRoot->filterChildren(children,true,CC_TYPES::HIERARCHY_OBJECT);
-	while(!children.empty())
+	ccHObject* labelGroup = getGroup(labelGroupName);
+	if (!labelGroup)
 	{
-		ccHObject *child = children.back();
-		children.pop_back();
-		if(child->getName()==labelGroupName)
-		{
-			return child;
-		}
+		labelGroup = new ccHObject(labelGroupName);
+		addElement(labelGroup);
 	}
-	ccHObject* labelGroup = new ccHObject(labelGroupName);
-	addElement(labelGroup);
+	return labelGroup;
+}
+
+ccHObject* ccDBRoot::getLabelPathGroup()
+{
+	QString labelGroupName = "路径标注";
+	ccHObject* labelGroup = getGroup(labelGroupName);
+	if (!labelGroup)
+	{
+		labelGroup = new ccHObject(labelGroupName);
+		addElement(labelGroup);
+	}
 	return labelGroup;
 }
 

@@ -177,7 +177,11 @@ public:
 	**/
 	void selectEntities(const ccHObject::Container& entities, bool incremental = false);
 
+	ccHObject* getGroup(const QString& groupName);
+
 	ccHObject* getLabelGroup();
+
+	ccHObject* getLabelPathGroup();
 
 private:
 	//! Entity property that can be toggled
