@@ -578,6 +578,7 @@ private:
 	void showShortcutDialog();
 
 	bool exportDeviceInfo(const QString &exportFileName);
+	bool exportPointTable(const QString& exportFileName);
 	bool exportPathInfo(const QString& exportFileName);
 
 private: //members

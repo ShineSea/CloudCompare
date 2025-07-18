@@ -12183,12 +12183,6 @@ void MainWindow::doActionPromoteCircleToCylinder()
 
 void MainWindow::doActionSaveLabelInfo()
 {
-	if (!haveOneSelection())
-	{
-		ccConsole::Error(tr("Select one and only one entity!"));
-		return;
-	}
-	
 	QSettings settings;
 	settings.beginGroup(ccPS::SaveFile());
 	QString currentPath = settings.value(ccPS::CurrentPath(), ccFileUtils::defaultDocPath()).toString();
@@ -12206,6 +12200,7 @@ void MainWindow::doActionSaveLabelInfo()
 
 	bool exportOk = true;
 	exportOk &= exportDeviceInfo(dir + "/柜面台账.xlsx");
+	exportOk &= exportPointTable(dir + "/粗点表.xlsx");
 	exportOk &= exportPathInfo(dir + "/路径.txt");
 	if (exportOk)
 	{
@@ -12220,7 +12215,115 @@ void MainWindow::doActionSaveLabelInfo()
 
 bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 {
-	return false;
+	auto labelGroup = m_ccRoot->getLabelGroup();
+	if (!labelGroup)
+	{
+		ccConsole::Warning("无标注信息");
+		return true;
+	}
+	QXlsx::Document xlsxW;
+	enum Column {
+		Column_DeviceId = 1,
+		Column_FactoryName,
+		Column_VoltageLevel,
+		Column_AreaName,
+		Column_IntervalName,
+		Column_DeviceName,
+	};
+	QMap<Column, QString> columnNameMap = {
+		{Column_DeviceId,QStringLiteral("编号")},
+		{Column_FactoryName,QStringLiteral("变电站名称")},
+		{Column_VoltageLevel,QStringLiteral("电压等级")},
+		{Column_AreaName,QStringLiteral("区域名称")},
+		{Column_IntervalName,QStringLiteral("间隔名称")},
+		{Column_DeviceName,QStringLiteral("设备名称")},
+	};
+	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
+	{
+		xlsxW.write(1, it.key(), it.value());
+	}
+	int row = 2;
+	ccHObject::Container labelChildren;
+	labelGroup->filterChildren(labelChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+	while (!labelChildren.empty())
+	{
+		ccHObject* child = labelChildren.back();
+		labelChildren.pop_back();
+		if (child->getLabelInfoType() != LabelInfoType::Factory)
+		{
+			continue;
+		}
+		FactoryLabelInfo factoryInfo = child->getFactoryInfo();
+		ccHObject::Container factoryChildren;
+		child->filterChildren(factoryChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+		while (!factoryChildren.empty())
+		{
+			ccHObject* child = factoryChildren.back();
+			factoryChildren.pop_back();
+			if (child->getLabelInfoType() != LabelInfoType::Area)
+			{
+				continue;
+			}
+			AreaLabelInfo areaInfo = child->getAreaInfo();
+			ccHObject::Container areaChildren;
+			child->filterChildren(areaChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+			while (!areaChildren.empty())
+			{
+				ccHObject* child = areaChildren.back();
+				areaChildren.pop_back();
+				if (child->getLabelInfoType() != LabelInfoType::Interval)
+				{
+					continue;
+				}
+				IntervalLabelInfo intervalInfo = child->getIntervalInfo();
+				ccHObject::Container intervalChildren;
+				child->filterChildren(intervalChildren, false, CC_TYPES::POLY_LINE);
+				while (!intervalChildren.empty())
+				{
+					ccHObject* child = intervalChildren.back();
+					intervalChildren.pop_back();
+					if (child->getLabelInfoType() != LabelInfoType::Device)
+					{
+						continue;
+					}
+					ccPolyline* polyline = ccHObjectCaster::ToPolyline(child);
+					CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
+					if (cloud)
+					{
+						DeviceLabelInfo deviceInfo = polyline->getDeviceInfo();
+						xlsxW.write(row, Column_FactoryName, factoryInfo.factoryName);
+						xlsxW.write(row, Column_VoltageLevel, factoryInfo.voltageLevel);
+						xlsxW.write(row, Column_AreaName, areaInfo.areaName);
+						xlsxW.write(row, Column_IntervalName, intervalInfo.intervalName);
+						xlsxW.write(row, Column_DeviceName, deviceInfo.deviceName);
+						xlsxW.write(row, Column_DeviceId, row-1);
+						QStringList coordinate;
+						std::vector<int> pointIndexs = { 0,1,2,4 };
+						for (int i = 0; i < pointIndexs.size(); ++i)
+						{
+							const CCVector3* point = cloud->getPoint(pointIndexs[i]);
+							xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
+							xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
+							xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
+						}
+						row++;
+					}
+				}
+			}
+		}
+	}
+	//添加列名
+	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
+	{
+		xlsxW.write(1, it.key(), it.value());
+	}
+	for (int i = 0; i < 4; ++i)
+	{
+		xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
+	}
+	return xlsxW.saveAs(exportFileName);
 	//ccHObject* entity = m_selectedEntities.front();
 	//auto labelGroup = ccLabelDeviceTool::getLabelGroup(entity);
 	//if (!labelGroup)
@@ -12229,22 +12332,7 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 	//	return true;
 	//}
 	//QXlsx::Document xlsxW;
-	//enum Column {
-	//	Column_DeviceId = 1,
-	//	Column_FactoryName,
-	//	Column_VoltageLevel,
-	//	Column_AreaName,
-	//	Column_IntervalName,
-	//	Column_DeviceName,
-	//};
-	//QMap<Column, QString> columnNameMap = {
-	//	{Column_DeviceId,QStringLiteral("编号")},
-	//	{Column_FactoryName,QStringLiteral("变电站名称")},
-	//	{Column_VoltageLevel,QStringLiteral("电压等级")},
-	//	{Column_AreaName,QStringLiteral("区域名称")},
-	//	{Column_IntervalName,QStringLiteral("间隔名称")},
-	//	{Column_DeviceName,QStringLiteral("设备名称")},
-	//};
+	
 	//ccHObject::Container intervalGroups;
 	//labelGroup->filterChildren(intervalGroups, true, CC_TYPES::OBJECT);
 	//int row = 2;
@@ -12260,9 +12348,7 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 	//		if (cloud)
 	//		{
 	//			DeviceLabelInfo labelInfo = polyline->getDeviceInfo();
-	//			xlsxW.write(row, Column_DeviceId, labelInfo.deviceId);
-	//			xlsxW.write(row, Column_IntervalName, intervalName);
-	//			xlsxW.write(row, Column_DeviceName, labelInfo.deviceName);
+	//			
 	//			std::vector<int> pointIndexs = { 0,1,2,4 };
 	//			for (int i = 0; i < 4; ++i)
 	//			{
@@ -12275,65 +12361,164 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 	//		}
 	//	}
 	//}
-	////添加列名
-	//for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
-	//{
-	//	xlsxW.write(1, it.key(), it.value());
-	//}
-	//for (int i = 0; i < 4; ++i)
-	//{
-	//	xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
-	//	xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
-	//	xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
-	//}
+
 	//return xlsxW.saveAs(exportFileName);
+}
+
+bool MainWindow::exportPointTable(const QString& exportFileName)
+{
+	auto labelGroup = m_ccRoot->getLabelGroup();
+	if (!labelGroup)
+	{
+		ccConsole::Warning("无标注信息");
+		return true;
+	}
+	QXlsx::Document xlsxW;
+	enum Column {
+		Column_StationName = 1,
+		Column_StationId,
+		Column_AreaId,
+		Column_AreaName,
+		Column_BayId,
+		Column_BayName,
+		Column_MainDeviceId,
+		Column_MainDeviceName,
+		Column_MasterCoordinate
+	};
+	QMap<Column, QString> columnNameMap = {
+		{Column_StationName,"station_name"},
+		{Column_StationId,"station_code"},
+		{Column_AreaId,"area_id "},
+		{Column_AreaName,"area_name"},
+		{Column_BayId,"bay_id"},
+		{Column_BayName,"bay_name"},
+		{Column_MainDeviceId,"main_device_id"},
+		{Column_MainDeviceName,"main_device_name"},
+		{Column_MasterCoordinate,"master_coordinate"}
+	};
+	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
+	{
+		xlsxW.write(1, it.key(), it.value());
+	}
+	int row = 2;
+	ccHObject::Container labelChildren;
+	labelGroup->filterChildren(labelChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+	while (!labelChildren.empty())
+	{
+		ccHObject* child = labelChildren.back();
+		labelChildren.pop_back();
+		if (child->getLabelInfoType() != LabelInfoType::Factory)
+		{
+			continue;
+		}
+		FactoryLabelInfo factoryInfo = child->getFactoryInfo();
+		ccHObject::Container factoryChildren;
+		child->filterChildren(factoryChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+		while (!factoryChildren.empty())
+		{
+			ccHObject* child = factoryChildren.back();
+			factoryChildren.pop_back();
+			if (child->getLabelInfoType() != LabelInfoType::Area)
+			{
+				continue;
+			}
+			AreaLabelInfo areaInfo = child->getAreaInfo();
+			ccHObject::Container areaChildren;
+			child->filterChildren(areaChildren, false, CC_TYPES::HIERARCHY_OBJECT);
+			while (!areaChildren.empty())
+			{
+				ccHObject* child = areaChildren.back();
+				areaChildren.pop_back();
+				if (child->getLabelInfoType() != LabelInfoType::Interval)
+				{
+					continue;
+				}
+				IntervalLabelInfo intervalInfo = child->getIntervalInfo();
+				ccHObject::Container intervalChildren;
+				child->filterChildren(intervalChildren, false, CC_TYPES::POLY_LINE);
+				while (!intervalChildren.empty())
+				{
+					ccHObject* child = intervalChildren.back();
+					intervalChildren.pop_back();
+					if (child->getLabelInfoType() != LabelInfoType::Device)
+					{
+						continue;
+					}
+					ccPolyline* polyline = ccHObjectCaster::ToPolyline(child);
+					CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
+					if (cloud)
+					{
+						DeviceLabelInfo deviceInfo = polyline->getDeviceInfo();
+						xlsxW.write(row, Column_StationName, factoryInfo.factoryName);
+						xlsxW.write(row, Column_StationId, factoryInfo.factoryId);
+						xlsxW.write(row, Column_AreaName, areaInfo.areaName);
+						xlsxW.write(row, Column_AreaId, areaInfo.areaId);
+						xlsxW.write(row, Column_BayId, intervalInfo.intervalId);
+						xlsxW.write(row, Column_BayName, intervalInfo.intervalName);
+						xlsxW.write(row, Column_MainDeviceId, deviceInfo.deviceId);
+						xlsxW.write(row, Column_MainDeviceName, deviceInfo.deviceName);
+						QStringList coordinate;
+						std::vector<int> pointIndexs = { 0,1,2,4 };
+						for (int i = 0; i < pointIndexs.size(); ++i)
+						{
+							const CCVector3* point = cloud->getPoint(pointIndexs[i]);
+							coordinate.push_back(QString("%1_%2_%3").arg(point->x).arg(point->y).arg(point->z));
+						}
+						xlsxW.write(row, Column_MasterCoordinate, coordinate.join(';'));
+						row++;
+					}
+				}
+			}
+		}
+	}
+	return xlsxW.saveAs(exportFileName);
 }
 
 bool MainWindow::exportPathInfo(const QString& exportFileName)
 {
-	ccHObject* entity = m_selectedEntities.front();
-	auto labelPathGroup = ccLabelPathDlg::getLabelPathGroup(entity);
-	if (!labelPathGroup)
-	{
-		ccConsole::Warning("无路径标注信息");
-		return true;
-	}
-	QFile fp(exportFileName);
-	if (!fp.open(QFile::WriteOnly))
-	{
-		return false;
-}
-	CCVector3d shift;
-	double scale = 1.0;
-	ccGenericPointCloud* asCloud = ccHObjectCaster::ToGenericPointCloud(entity);
-	if (asCloud)
-	{
-		shift = asCloud->getGlobalShift();
-		scale = asCloud->getGlobalScale();
-	}
-
-	QTextStream stream(&fp);
-	stream.setRealNumberPrecision(12);
-	ccHObject::Container labels;
-	unsigned count = labelPathGroup->filterChildren(labels, false, CC_TYPES::LABEL_2D);
-
-	for (unsigned i = 0; i < count; ++i)
-	{
-		if (labels[i]->isA(CC_TYPES::LABEL_2D)) //Warning: cc2DViewportLabel is also a kind of 'CC_TYPES::LABEL_2D'!
-		{
-			cc2DLabel* label = static_cast<cc2DLabel*>(labels[i]);
-			const cc2DLabel::PickedPoint& PP = label->getPickedPoint(0);
-			CCVector3 P = PP.getPointPosition();
-			if (label->isVisible() && label->size() == 1)
-			{
-				stream << label->getPathInfo().pathId<<' '
-					<< static_cast<double>(P.x) / scale - shift.x << ' '
-					<< static_cast<double>(P.y) / scale - shift.y << ' '
-					<< static_cast<double>(P.z) / scale - shift.z << endl;
-			}
-		}
-	}
-	fp.close();
+//	ccHObject* entity = m_selectedEntities.front();
+//	auto labelPathGroup = ccLabelPathDlg::getLabelPathGroup(entity);
+//	if (!labelPathGroup)
+//	{
+//		ccConsole::Warning("无路径标注信息");
+//		return true;
+//	}
+//	QFile fp(exportFileName);
+//	if (!fp.open(QFile::WriteOnly))
+//	{
+//		return false;
+//}
+//	CCVector3d shift;
+//	double scale = 1.0;
+//	ccGenericPointCloud* asCloud = ccHObjectCaster::ToGenericPointCloud(entity);
+//	if (asCloud)
+//	{
+//		shift = asCloud->getGlobalShift();
+//		scale = asCloud->getGlobalScale();
+//	}
+//
+//	QTextStream stream(&fp);
+//	stream.setRealNumberPrecision(12);
+//	ccHObject::Container labels;
+//	unsigned count = labelPathGroup->filterChildren(labels, false, CC_TYPES::LABEL_2D);
+//
+//	for (unsigned i = 0; i < count; ++i)
+//	{
+//		if (labels[i]->isA(CC_TYPES::LABEL_2D)) //Warning: cc2DViewportLabel is also a kind of 'CC_TYPES::LABEL_2D'!
+//		{
+//			cc2DLabel* label = static_cast<cc2DLabel*>(labels[i]);
+//			const cc2DLabel::PickedPoint& PP = label->getPickedPoint(0);
+//			CCVector3 P = PP.getPointPosition();
+//			if (label->isVisible() && label->size() == 1)
+//			{
+//				stream << label->getPathInfo().pathId<<' '
+//					<< static_cast<double>(P.x) / scale - shift.x << ' '
+//					<< static_cast<double>(P.y) / scale - shift.y << ' '
+//					<< static_cast<double>(P.z) / scale - shift.z << endl;
+//			}
+//		}
+//	}
+//	fp.close();
 	return true;
 }
 
