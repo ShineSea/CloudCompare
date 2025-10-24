@@ -512,6 +512,9 @@ void ccLabelDeviceTool::exportLine()
 		ccHObject* intervalGroup = m_intervalMap[m_lastIntervalId];
 		if (!intervalGroup)
 		{
+			delete m_poly3D;
+			m_poly3D = nullptr;
+			m_poly3DVertices = nullptr;
 			return;
 		}
 		for (int i = 0; i < m_polyDevices.size(); ++i)
@@ -728,21 +731,29 @@ void ccLabelDeviceTool::updateIntervalComboBox()
 std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 {
 	std::vector<std::vector<CCVector3>> result;
-	unsigned pointCount = m_poly3DVertices->size();
-
-	if (!m_poly3DVertices || pointCount < 4)
+	if (!m_poly3DVertices || m_poly3DVertices->size() < 3)
 	{
 		return result;
 	}
-	unsigned backBottomStart = 0;
-	unsigned frontBottomStart = 1;
-	unsigned frontBottomEnd = 2;
-	unsigned frontTopEnd = 3;
-
-	CCVector3 backBottomFirst = *(m_poly3DVertices->getPoint(backBottomStart));
-	CCVector3 frontBottomFirst = *(m_poly3DVertices->getPoint(frontBottomStart));
-	CCVector3 frontBottomLast = *(m_poly3DVertices->getPoint(frontBottomEnd));
-	CCVector3 frontTopLast = *(m_poly3DVertices->getPoint(frontTopEnd));
+	if (m_poly3DVertices->size() == 3)
+	{
+		CCVector3 frontLeftBottom = *(m_poly3DVertices->getPoint(ms_frontLeftBottomIdx));
+		CCVector3 frontRightBottom = *(m_poly3DVertices->getPoint(ms_frontRightBottomIdx));
+		CCVector3 frontRightTop = *(m_poly3DVertices->getPoint(ms_frontRightTopIdx));
+		CCVector3 totalFrontBottomEdge = frontRightBottom - frontLeftBottom;
+		CCVector3 frontLeftTop = frontRightTop - totalFrontBottomEdge;
+		std::vector<CCVector3> quad;
+		quad.push_back(frontLeftBottom);
+		quad.push_back(frontRightBottom);
+		quad.push_back(frontRightTop);
+		quad.push_back(frontLeftTop);
+		result.push_back(quad);
+		return result;
+	}
+	CCVector3 frontLeftBottom = *(m_poly3DVertices->getPoint(ms_frontLeftBottomIdx));
+	CCVector3 frontRightBottom = *(m_poly3DVertices->getPoint(ms_frontRightBottomIdx));
+	CCVector3 frontRightTop = *(m_poly3DVertices->getPoint(ms_frontRightTopIdx));
+	CCVector3 backRightTop = *(m_poly3DVertices->getPoint(ms_backRightTopIdx));
 	/*double findDistance = (frontBottomFirst - backBottomFirst).normd() * 0.05;
 	if (std::isgreater(backBottomFirst.y ,frontBottomFirst.y))
 	{
@@ -759,24 +770,26 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 		frontTopLast = findPoint(FindPointMode::FindFront, frontTopLast, findDistance);
 	}*/
 	
-	CCVector3 totalFrontBottomEdge = frontBottomLast - frontBottomFirst;	
-	CCVector3 frontTopFirst = frontTopLast - totalFrontBottomEdge;
-	CCVector3 backTopFirst = frontTopFirst - (frontBottomFirst - backBottomFirst);
+	CCVector3 totalFrontBottomEdge = frontRightBottom - frontLeftBottom;
+	CCVector3 frontLeftTop = frontRightTop - totalFrontBottomEdge;
+	CCVector3 depthEdge = backRightTop - frontRightTop;
+	CCVector3 backLeftBottom = frontLeftBottom + depthEdge;
+	CCVector3 backLeftTop = frontLeftTop + depthEdge;
 
 
 	std::vector<CCVector3> frontBottomPoints;
 	std::vector<CCVector3> frontTopPoints;
 	std::vector<CCVector3> backBottomPoints;
 	std::vector<CCVector3> backTopPoints;
-	frontBottomPoints.push_back(frontBottomFirst);
-	frontTopPoints.push_back(frontTopFirst);
-	backBottomPoints.push_back(backBottomFirst);
-	backTopPoints.push_back(backTopFirst);
+	frontBottomPoints.push_back(frontLeftBottom);
+	frontTopPoints.push_back(frontLeftTop);
+	backBottomPoints.push_back(backLeftBottom);
+	backTopPoints.push_back(backLeftTop);
 
-	std::vector<int> indexs(pointCount - 2);
-	indexs[0] = frontBottomStart;
+	std::vector<int> indexs(m_poly3DVertices->size() - 2);
+	indexs[0] = ms_frontLeftBottomIdx;
 	std::iota(indexs.begin() + 1, indexs.end() - 1, 4);
-	indexs[indexs.size() - 1] = frontBottomEnd;
+	indexs[indexs.size() - 1] = ms_frontRightBottomIdx;
 
 	double totalFrontBottomEdgeLength = 0;
 	for (unsigned i = 0; i < indexs.size() - 1; ++i)
@@ -808,10 +821,10 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 		//	backTopPoints.push_back(findPoint(FindPointMode::FindBack, totalFrontBottomEdge * ratio + backTopFirst, findDistance));
 		//}
 
-		frontBottomPoints.push_back(totalFrontBottomEdge * ratio + frontBottomFirst);
-		frontTopPoints.push_back(totalFrontBottomEdge * ratio + frontTopFirst);
-		backBottomPoints.push_back(totalFrontBottomEdge * ratio + backBottomFirst);
-		backTopPoints.push_back(totalFrontBottomEdge * ratio + backTopFirst);
+		frontBottomPoints.push_back(totalFrontBottomEdge * ratio + frontLeftBottom);
+		frontTopPoints.push_back(totalFrontBottomEdge * ratio + frontLeftTop);
+		backBottomPoints.push_back(totalFrontBottomEdge * ratio + backLeftBottom);
+		backTopPoints.push_back(totalFrontBottomEdge * ratio + backLeftTop);
 	}
 	for (int i = 0; i < frontBottomPoints.size() - 1; i++)
 	{
@@ -831,7 +844,7 @@ std::vector<std::vector<CCVector3>> ccLabelDeviceTool::getSplitPolylines() const
 
 void ccLabelDeviceTool::updatePolyTipFirstP()
 {
-	int pointIndex = m_poly3DVertices->size() >= 4 ? 1 : m_poly3DVertices->size() - 1;
+	int pointIndex = m_poly3DVertices->size() >= 4 ? ms_frontLeftBottomIdx : m_poly3DVertices->size() - 1;
 	const CCVector3 *P3D = m_poly3DVertices->getPoint(pointIndex);
 
 	ccGLCameraParameters camera;
@@ -860,47 +873,58 @@ void ccLabelDeviceTool::updatePolyDevices()
 		{
 			poly3DVertices->addPoint(point);
 		}
-
 		ccPolyline *poly3D = new ccPolyline(poly3DVertices);
 		poly3D->setClosed(true);
 		poly3D->setTempColor(ccColor::green);
 		poly3D->setDisplay(m_associatedWin);
 		poly3D->addChild(poly3DVertices);
 		poly3D->setWidth(2);
-
 		poly3D->setDrawLine(true);
-		poly3D->reserve(24);
-		// 立方体12条边的顶点索引顺序
-		// 前面4条边（逆时针）
-		poly3D->addPointIndex(0); // 前面底边：0->1
-		poly3D->addPointIndex(1);
-		poly3D->addPointIndex(1); // 前面右边：1->2
-		poly3D->addPointIndex(2);
-		poly3D->addPointIndex(2); // 前面上边：2->3
-		poly3D->addPointIndex(3);
-		poly3D->addPointIndex(3); // 前面左边：3->0
-		poly3D->addPointIndex(0);
+		if (poly3DVertices->size() >= 8)
+		{
+			poly3D->reserve(24);
+			// 立方体12条边的顶点索引顺序
+			// 前面4条边（逆时针）
+			poly3D->addPointIndex(0); // 前面底边：0->1
+			poly3D->addPointIndex(1);
+			poly3D->addPointIndex(1); // 前面右边：1->2
+			poly3D->addPointIndex(2);
+			poly3D->addPointIndex(2); // 前面上边：2->3
+			poly3D->addPointIndex(3);
+			poly3D->addPointIndex(3); // 前面左边：3->0
+			poly3D->addPointIndex(0);
 
-		// 后面4条边（逆时针）
-		poly3D->addPointIndex(4); // 后面底边：4->5
-		poly3D->addPointIndex(5);
-		poly3D->addPointIndex(5); // 后面右边：5->6
-		poly3D->addPointIndex(6);
-		poly3D->addPointIndex(6); // 后面上边：6->7
-		poly3D->addPointIndex(7);
-		poly3D->addPointIndex(7); // 后面左边：7->4
-		poly3D->addPointIndex(4);
+			// 后面4条边（逆时针）
+			poly3D->addPointIndex(4); // 后面底边：4->5
+			poly3D->addPointIndex(5);
+			poly3D->addPointIndex(5); // 后面右边：5->6
+			poly3D->addPointIndex(6);
+			poly3D->addPointIndex(6); // 后面上边：6->7
+			poly3D->addPointIndex(7);
+			poly3D->addPointIndex(7); // 后面左边：7->4
+			poly3D->addPointIndex(4);
 
-		// 连接前后面的4条边
-		poly3D->addPointIndex(0); // 左后边：0->4
-		poly3D->addPointIndex(4);
-		poly3D->addPointIndex(1); // 右后边：1->5
-		poly3D->addPointIndex(5);
-		poly3D->addPointIndex(2); // 右前边：2->6
-		poly3D->addPointIndex(6);
-		poly3D->addPointIndex(3); // 左前边：3->7
-		poly3D->addPointIndex(7);
-
+			// 连接前后面的4条边
+			poly3D->addPointIndex(0); // 左后边：0->4
+			poly3D->addPointIndex(4);
+			poly3D->addPointIndex(1); // 右后边：1->5
+			poly3D->addPointIndex(5);
+			poly3D->addPointIndex(2); // 右前边：2->6
+			poly3D->addPointIndex(6);
+			poly3D->addPointIndex(3); // 左前边：3->7
+			poly3D->addPointIndex(7);
+		}
+		else {
+			poly3D->reserve(8);
+			poly3D->addPointIndex(0); // 前面底边：0->1
+			poly3D->addPointIndex(1);
+			poly3D->addPointIndex(1); // 前面右边：1->2
+			poly3D->addPointIndex(2);
+			poly3D->addPointIndex(2); // 前面上边：2->3
+			poly3D->addPointIndex(3);
+			poly3D->addPointIndex(3); // 前面左边：3->0
+			poly3D->addPointIndex(0);
+		}
 		m_associatedWin->addToOwnDB(poly3D);
 		m_polyDevices.push_back(poly3D);
 	}

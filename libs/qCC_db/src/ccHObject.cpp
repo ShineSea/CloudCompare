@@ -1506,6 +1506,25 @@ DeviceLabelInfo ccHObject::getDeviceInfo() const
 	return labelInfo;
 }
 
+void ccHObject::setStationInfo(const StationLabelInfo& labelInfo)
+{
+	if (labelInfo.stationId.isEmpty() && labelInfo.stationName.isEmpty())
+	{
+		ccLog::Warning("[ccPolyline::setLabelInfo] Invalid label info (empty device ID and name)");
+		return;
+	}
+	this->setName(labelInfo.stationName);
+	this->setMetaData(QStringLiteral("stationId"), labelInfo.stationId);
+	this->setMetaData(QStringLiteral("stationName"), labelInfo.stationName);
+}
+StationLabelInfo ccHObject::getStationInfo() const
+{
+	StationLabelInfo labelInfo;
+	labelInfo.stationId = this->getMetaData(QStringLiteral("stationId")).toString();
+	labelInfo.stationName = this->getMetaData(QStringLiteral("stationName")).toString();
+	return labelInfo;
+}
+
 void ccHObject::setPathInfo(const PathLabelInfo& labelInfo)
 {
 	if (labelInfo.pathId.isEmpty())

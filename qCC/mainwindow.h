@@ -59,6 +59,7 @@ class ccTracePolylineTool;
 class ccShortcutDialog;
 class ccLabelDeviceTool;
 class ccLabelPathDlg;
+class ccLabelAreaTool;
 
 struct dbTreeSelectionInfo;
 
@@ -426,6 +427,10 @@ private:
 	void activateLabelDeviceMode();
 	void deactivateLabelDeviceMode(bool);
 
+	//Label device tool
+	void activateLabelStationMode();
+	void deactivateLabelStationMode(bool);
+
 	//Section extraction
 	void activateSectionExtractionMode();
 	void deactivateSectionExtractionMode(bool);
@@ -670,6 +675,8 @@ private: //members
 	
 	//! Label tool
 	ccLabelDeviceTool * m_labelDeviceTool;
+
+	ccLabelAreaTool* m_labelAreaTool;
 	 
 	//! Label path dialog
 	ccLabelPathDlg* m_labelPathDlg;

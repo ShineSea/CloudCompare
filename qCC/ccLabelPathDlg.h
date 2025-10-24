@@ -27,7 +27,7 @@ public:
     //! Associates dialog with a cloud or a mesh
     void linkWithEntity(ccHObject *entity);
 
-	static ccHObject*  getLabelPathGroup(ccHObject* entity);
+	static ccHObject* getLabelPathGroup(ccHObject* entity);
 
 protected:
     //! Applies changes and exit
@@ -48,6 +48,7 @@ protected:
     //! Gets current (visible) picked points from the associated cloud
     unsigned getPickedPoints(std::vector<cc2DLabel *> &pickedPoints);
 
+	QList<QRectF> getStationAreas() const;
     //! Export format
     /** See exportToASCII.
      **/

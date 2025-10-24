@@ -173,6 +173,7 @@
 
 #include "ccLabelDeviceTool.h"
 #include "ccLabelPathDlg.h"
+#include "ccLabelAreaTool.h"
 
 //global static pointer (as there should only be one instance of MainWindow!)
 static MainWindow* s_instance  = nullptr;
@@ -230,6 +231,7 @@ MainWindow::MainWindow()
     , m_shortcutDlg(nullptr)
 	, m_labelDeviceTool(nullptr)
 	, m_labelPathDlg(nullptr)
+	, m_labelAreaTool(nullptr)
 	, m_actions()
 {
 	m_UI->setupUi( this );
@@ -845,6 +847,7 @@ void MainWindow::connectActions()
 	connect(m_UI->actionEnableVisualDebugTraces,	&QAction::triggered, this, &MainWindow::toggleVisualDebugTraces);
 
 	connect(m_UI->actionLabelDevice,				&QAction::triggered, this, &MainWindow::activateLabelDeviceMode);
+	connect(m_UI->actionLabelStation, &QAction::triggered, this, &MainWindow::activateLabelStationMode);
 	connect(m_UI->actionLabelPath,				&QAction::triggered, this, &MainWindow::activateLabelPathMode);
 	connect(m_UI->actionSaveLabelInfo,&QAction::triggered, this, &MainWindow::doActionSaveLabelInfo);
 }
@@ -7072,6 +7075,51 @@ void MainWindow::deactivateLabelDeviceMode(bool)
 
 }
 
+void MainWindow::activateLabelStationMode()
+{
+	ccGLWindowInterface* win = getActiveGLWindow();
+	if (!win)
+	{
+		return;
+	}
+
+	if (!m_labelAreaTool)
+	{
+		m_labelAreaTool = new ccLabelAreaTool(m_pickingHub, this);
+		connect(m_labelAreaTool, &ccOverlayDialog::processFinished, this, &MainWindow::deactivateLabelDeviceMode);
+		registerOverlayDialog(m_labelAreaTool, Qt::TopRightCorner);
+	}
+
+	m_labelAreaTool->linkWith(win);
+
+	freezeUI(true);
+	m_UI->toolBarView->setDisabled(false);
+
+	//we disable all other windows
+	disableAllBut(win);
+
+	if (!m_labelAreaTool->start())
+		deactivateLabelDeviceMode(false);
+	else
+		updateOverlayDialogsPlacement();
+}
+
+void MainWindow::deactivateLabelStationMode(bool)
+{
+	//we enable all GL windows
+	enableAll();
+
+	freezeUI(false);
+
+	updateUI();
+
+	ccGLWindowInterface* win = getActiveGLWindow();
+	if (win)
+	{
+		win->redraw();
+	}
+}
+
 void MainWindow::activatePointListPickingMode()
 {
 	ccGLWindowInterface* win = getActiveGLWindow();
@@ -11503,6 +11551,7 @@ void MainWindow::enableUIItems(dbTreeSelectionInfo& selInfo)
 	//menuEdit->setEnabled(atLeastOneEntity);
 	//menuTools->setEnabled(atLeastOneEntity);
 	m_UI->actionLabelDevice->setEnabled(!dbIsEmpty);
+	m_UI->actionLabelStation->setEnabled(!dbIsEmpty);
 	m_UI->actionSaveLabelInfo->setEnabled(!dbIsEmpty);
 	m_UI->actionLabelPath->setEnabled(!dbIsEmpty);
 
@@ -12238,10 +12287,18 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 		{Column_IntervalName,QStringLiteral("间隔名称")},
 		{Column_DeviceName,QStringLiteral("设备名称")},
 	};
+	//添加列名
 	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
 	{
 		xlsxW.write(1, it.key(), it.value());
 	}
+	for (int i = 0; i < 4; ++i)
+	{
+		xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
+		xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
+	}
+
 	int row = 2;
 	ccHObject::Container labelChildren;
 	labelGroup->filterChildren(labelChildren, false, CC_TYPES::HIERARCHY_OBJECT);
@@ -12282,47 +12339,63 @@ bool MainWindow::exportDeviceInfo(const QString& exportFileName)
 				{
 					ccHObject* child = intervalChildren.back();
 					intervalChildren.pop_back();
-					if (child->getLabelInfoType() != LabelInfoType::Device)
-					{
+
+					auto type = child->getLabelInfoType();
+					if (type != LabelInfoType::Device && type != LabelInfoType::Station)
 						continue;
-					}
+
 					ccPolyline* polyline = ccHObjectCaster::ToPolyline(child);
+					if (!polyline)
+						continue;
+
 					CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
-					if (cloud)
-					{
-						DeviceLabelInfo deviceInfo = polyline->getDeviceInfo();
-						xlsxW.write(row, Column_FactoryName, factoryInfo.factoryName);
-						xlsxW.write(row, Column_VoltageLevel, factoryInfo.voltageLevel);
-						xlsxW.write(row, Column_AreaName, areaInfo.areaName);
-						xlsxW.write(row, Column_IntervalName, intervalInfo.intervalName);
-						xlsxW.write(row, Column_DeviceName, deviceInfo.deviceName);
-						xlsxW.write(row, Column_DeviceId, row-1);
-						QStringList coordinate;
-						std::vector<int> pointIndexs = { 0,1,2,4 };
-						for (int i = 0; i < pointIndexs.size(); ++i)
+					if (!cloud)
+						continue;
+
+					// 公共写入部分
+					xlsxW.write(row, Column_FactoryName, factoryInfo.factoryName);
+					xlsxW.write(row, Column_VoltageLevel, factoryInfo.voltageLevel);
+					xlsxW.write(row, Column_AreaName, areaInfo.areaName);
+					xlsxW.write(row, Column_IntervalName, intervalInfo.intervalName);
+					xlsxW.write(row, Column_DeviceId, row - 1);
+
+					// 坐标写入工具
+					auto writePoints = [&](const std::vector<int>& indices)
 						{
-							const CCVector3* point = cloud->getPoint(pointIndexs[i]);
-							xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
-							xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
-							xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
-						}
-						row++;
+							for (int i = 0; i < static_cast<int>(indices.size()); ++i)
+							{
+								const CCVector3* point = cloud->getPoint(indices[i]);
+								xlsxW.write(row, Column_DeviceName + 3 * i + 1, point->x);
+								xlsxW.write(row, Column_DeviceName + 3 * i + 2, point->y);
+								xlsxW.write(row, Column_DeviceName + 3 * i + 3, point->z);
+							}
+						};
+
+					// 根据类型处理
+					if (type == LabelInfoType::Station)
+					{
+						const StationLabelInfo stationInfo = polyline->getStationInfo();
+						xlsxW.write(row, Column_DeviceName, stationInfo.stationName);
+
+						std::vector<int> indices(cloud->size());
+						std::iota(indices.begin(), indices.end(), 0); // 全部点
+						writePoints(indices);
 					}
+					else if (type == LabelInfoType::Device)
+					{
+						const DeviceLabelInfo deviceInfo = polyline->getDeviceInfo();
+						xlsxW.write(row, Column_DeviceName, deviceInfo.deviceName);
+
+						writePoints({ 0, 1, 2, 4 });
+					}
+
+					++row;
 				}
+
 			}
 		}
 	}
-	//添加列名
-	for (auto it = columnNameMap.begin(); it != columnNameMap.end(); ++it)
-	{
-		xlsxW.write(1, it.key(), it.value());
-	}
-	for (int i = 0; i < 4; ++i)
-	{
-		xlsxW.write(1, Column_DeviceName + 3 * i + 1, QString("X%1").arg(i + 1));
-		xlsxW.write(1, Column_DeviceName + 3 * i + 2, QString("Y%1").arg(i + 1));
-		xlsxW.write(1, Column_DeviceName + 3 * i + 3, QString("Z%1").arg(i + 1));
-	}
+	
 	return xlsxW.saveAs(exportFileName);
 }
 
@@ -12397,37 +12470,66 @@ bool MainWindow::exportPointTable(const QString& exportFileName)
 				IntervalLabelInfo intervalInfo = child->getIntervalInfo();
 				ccHObject::Container intervalChildren;
 				child->filterChildren(intervalChildren, false, CC_TYPES::POLY_LINE);
+
 				while (!intervalChildren.empty())
 				{
 					ccHObject* child = intervalChildren.back();
 					intervalChildren.pop_back();
-					if (child->getLabelInfoType() != LabelInfoType::Device)
-					{
+
+					auto type = child->getLabelInfoType();
+					if (type != LabelInfoType::Device && type != LabelInfoType::Station)
 						continue;
-					}
+
 					ccPolyline* polyline = ccHObjectCaster::ToPolyline(child);
+					if (!polyline)
+						continue;
+
 					CCCoreLib::GenericIndexedCloudPersist* cloud = polyline->getAssociatedCloud();
-					if (cloud)
+					if (!cloud)
+						continue;
+
+					// 公共写入部分
+					xlsxW.write(row, Column_StationName, factoryInfo.factoryName);
+					xlsxW.write(row, Column_StationId, factoryInfo.factoryId);
+					xlsxW.write(row, Column_AreaName, areaInfo.areaName);
+					xlsxW.write(row, Column_AreaId, areaInfo.areaId);
+					xlsxW.write(row, Column_BayId, intervalInfo.intervalId);
+					xlsxW.write(row, Column_BayName, intervalInfo.intervalName);
+
+					// 坐标写入工具
+					auto writePoints = [&](const std::vector<int>& indices)
+						{
+							QStringList coordinate;
+							for (int i = 0; i < static_cast<int>(indices.size()); ++i)
+							{
+								const CCVector3* point = cloud->getPoint(indices[i]);
+								coordinate.push_back(QString("%1_%2_%3").arg(point->x).arg(point->y).arg(point->z));
+							}
+							xlsxW.write(row, Column_MasterCoordinate, coordinate.join(';'));
+						};
+
+					// 根据类型处理
+					if (type == LabelInfoType::Station)
 					{
-						DeviceLabelInfo deviceInfo = polyline->getDeviceInfo();
-						xlsxW.write(row, Column_StationName, factoryInfo.factoryName);
-						xlsxW.write(row, Column_StationId, factoryInfo.factoryId);
-						xlsxW.write(row, Column_AreaName, areaInfo.areaName);
-						xlsxW.write(row, Column_AreaId, areaInfo.areaId);
-						xlsxW.write(row, Column_BayId, intervalInfo.intervalId);
-						xlsxW.write(row, Column_BayName, intervalInfo.intervalName);
+
+						StationLabelInfo stationInfo = polyline->getStationInfo();
+						xlsxW.write(row, Column_MainDeviceId, stationInfo.stationId);
+						xlsxW.write(row, Column_MainDeviceName, stationInfo.stationName);
+
+						std::vector<int> indices(cloud->size());
+						std::iota(indices.begin(), indices.end(), 0); // 全部点
+						writePoints(indices);
+					}
+					else if (type == LabelInfoType::Device)
+					{
+						const DeviceLabelInfo deviceInfo = polyline->getDeviceInfo();
 						xlsxW.write(row, Column_MainDeviceId, deviceInfo.deviceId);
 						xlsxW.write(row, Column_MainDeviceName, deviceInfo.deviceName);
-						QStringList coordinate;
-						std::vector<int> pointIndexs = { 0,1,2,4 };
-						for (int i = 0; i < pointIndexs.size(); ++i)
-						{
-							const CCVector3* point = cloud->getPoint(pointIndexs[i]);
-							coordinate.push_back(QString("%1_%2_%3").arg(point->x).arg(point->y).arg(point->z));
-						}
-						xlsxW.write(row, Column_MasterCoordinate, coordinate.join(';'));
-						row++;
+
+						writePoints({ 0, 1, 2, 4 });
 					}
+
+					++row;
 				}
 			}
 		}
@@ -12720,6 +12822,7 @@ void MainWindow::populateActionList()
 	m_actions.push_back(m_UI->actionLabelDevice);
 	m_actions.push_back(m_UI->actionSaveLabelInfo);
     m_actions.push_back(m_UI->actionLabelPath);
+	m_actions.push_back(m_UI->actionLabelStation);
 
 }
 

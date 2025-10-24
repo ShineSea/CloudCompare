@@ -27,6 +27,7 @@
 //system
 #include <vector>
 
+#include "ccHObject.h"
 class ccPolyline;
 class ccPointCloud;
 class ccGLWindowInterface;
@@ -34,19 +35,19 @@ class ccPickingHub;
 class ccDBRoot;
 namespace Ui
 {
-	class LabelDlg;
+	class LabelAreaDlg;
 }
 
 //! Graphical Polyline Tracing tool
-class ccLabelTool : public ccOverlayDialog, public ccPickingListener
+class ccLabelAreaTool : public ccOverlayDialog, public ccPickingListener
 {
 	Q_OBJECT
 
 public:
 	//! Default constructor
-	explicit ccLabelTool(ccPickingHub* pickingHub, QWidget* parent);
+	explicit ccLabelAreaTool(ccPickingHub* pickingHub, QWidget* parent);
 	//! Destructor
-	virtual ~ccLabelTool();
+	virtual ~ccLabelAreaTool();
 
 	//inherited from ccOverlayDialog
 	virtual bool linkWith(ccGLWindowInterface* win) override;
@@ -58,11 +59,12 @@ protected:
 	void apply();
 	void cancel();
 	void exportLine();
-	inline void continueEdition()  { restart(false); }
+	void undo();
 	inline void resetLine() { restart(true); }
 
 	void closePolyLine(int x = 0, int y = 0); //arguments for compatibility with ccGlWindow::rightButtonClicked signal
 	void updatePolyLineTip(int x, int y, Qt::MouseButtons buttons);
+	void updatePolyTipFirstP();
 
 	void onWidthSizeChanged(int);
 
@@ -77,15 +79,13 @@ protected:
 	//! Restarts the edition mode
 	void restart(bool reset);
 
-	
-	//!获取标注组
-	ccHObject* getLabelGroup();
+	void updateLabelInfos();
 
-	void updateIntervalGroupMap();
+	void updateFactoryComboBox();
 
-	//!获取下一个设备id
-	int getNextDeviceId();
+	void updateAreaComboBox();
 
+	void updateIntervalComboBox();
 	//! Viewport parameters (used for picking)
 	struct SegmentGLParams
 	{
@@ -95,9 +95,6 @@ protected:
 		CCVector2d clickPos;
 	};
 
-	//! Oversamples the active 3D polyline
-	ccPolyline* polylineOverSampling(unsigned steps) const;
-
 	//! 2D polyline (for the currently edited part)
 	ccPolyline* m_polyTip;
 	//! 2D polyline vertices
@@ -106,9 +103,6 @@ protected:
 	//!dbRoot
 	ccDBRoot* m_dbRoot;
 
-	//!间隔groupId
-	QMap<QString, int> m_intervalNameToGroupID;
-
 	//! 3D polyline
 	ccPolyline* m_poly3D;
 	//! 3D polyline vertices
@@ -116,14 +110,20 @@ protected:
 
 	//! Viewport parameters use to draw each segment of the polyline
 	std::vector<SegmentGLParams> m_segmentParams;
-
 	//! Current process state
 	bool m_done;
 
 	//! Picking hub
 	ccPickingHub* m_pickingHub;
 
-	Ui::LabelDlg* m_ui;
+	Ui::LabelAreaDlg* m_ui;
 
-	
+	QMap<QString, ccHObject*> m_intervalMap;
+	QList<FactoryLabelInfo> m_factoryInfoList;
+	QMap<QString, QList<AreaLabelInfo>> m_areaInfoMap;
+	QMap<QString, QList<IntervalLabelInfo>> m_intervalInfoMap;
+
+	static QString m_lastFactoryId;
+	static QString m_lastAreaId;
+	static QString m_lastIntervalId;
 };

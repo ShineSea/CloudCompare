@@ -95,6 +95,36 @@ unsigned ccLabelPathDlg::getPickedPoints(std::vector<cc2DLabel*>& pickedPoints)
 	return static_cast<unsigned>(pickedPoints.size());
 }
 
+QList<QRectF> ccLabelPathDlg::getStationAreas() const
+{
+	QList<QRectF> areas;
+	ccHObject* labelGroup = MainWindow::TheInstance()->db()->getLabelGroup();
+	ccHObject::Container children;
+	labelGroup->filterChildren(children, true, CC_TYPES::POLY_LINE);
+	while (!children.empty())
+	{
+		ccHObject* child = children.back();
+		children.pop_back();
+		if (child->getLabelInfoType()==LabelInfoType::Station)
+		{
+			ccPolyline* polyline = ccHObjectCaster::ToPolyline(child);
+			if (!polyline)
+				continue;
+			areas.append(QRectF(QPointF(polyline->getPoint(0)->x, polyline->getPoint(0)->y),
+				QPointF(polyline->getPoint(2)->x, polyline->getPoint(2)->y)));
+		}
+	}
+	return areas;
+
+
+
+
+
+
+
+
+}
+
 void ccLabelPathDlg::linkWithEntity(ccHObject* entity)
 {
 	m_associatedEntity = entity;

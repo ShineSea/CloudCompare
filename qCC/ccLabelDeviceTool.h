@@ -153,5 +153,10 @@ protected:
 	static QString m_lastAreaId;
 	static QString m_lastIntervalId;
 
+	static constexpr unsigned ms_frontLeftBottomIdx = 0;
+	static constexpr unsigned ms_frontRightBottomIdx = 1;
+	static constexpr unsigned ms_frontRightTopIdx = 2;
+	static constexpr unsigned ms_backRightTopIdx = 3;
+
 
 };

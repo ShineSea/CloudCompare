@@ -146,3 +146,5 @@ macos_bundle_dependencies.json
 macos_bundle_warnings.json
 *.egg-info
 
+CMakeUserPresets.json
+CMakePresets.json

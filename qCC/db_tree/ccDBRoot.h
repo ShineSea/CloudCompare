@@ -182,7 +182,6 @@ public:
 	ccHObject* getLabelGroup();
 
 	ccHObject* getLabelPathGroup();
-
 private:
 	//! Entity property that can be toggled
 	enum TOGGLE_PROPERTY {	TG_ENABLE,

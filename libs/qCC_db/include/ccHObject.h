@@ -31,7 +31,8 @@ enum class LabelInfoType {
 	Area,
 	Interval,
 	Device,
-	Path
+	Path,
+	Station
 };
 struct FactoryLabelInfo
 {
@@ -62,11 +63,19 @@ struct DeviceLabelInfo
 struct PathLabelInfo {
 	QString pathId;
 };
+
+struct StationLabelInfo {
+	QString stationId;
+	QString stationName;
+};
+
+inline const QString kStationDefaultName = "机站";
 Q_DECLARE_METATYPE(FactoryLabelInfo)
 Q_DECLARE_METATYPE(AreaLabelInfo)
 Q_DECLARE_METATYPE(IntervalLabelInfo)
 Q_DECLARE_METATYPE(DeviceLabelInfo)
 Q_DECLARE_METATYPE(PathLabelInfo)
+Q_DECLARE_METATYPE(StationLabelInfo)
 //! Hierarchical CloudCompare Object
 class QCC_DB_LIB_API ccHObject : public ccObject, public ccDrawableObject
 {
@@ -477,6 +486,9 @@ public:
 
 	void setDeviceInfo(const DeviceLabelInfo& labelInfo);
 	DeviceLabelInfo getDeviceInfo() const;
+
+	void setStationInfo(const StationLabelInfo& labelInfo);
+	StationLabelInfo getStationInfo() const;
 
 	void setPathInfo(const PathLabelInfo& labelInfo);
 	PathLabelInfo getPathInfo() const;
